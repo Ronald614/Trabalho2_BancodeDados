@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  base:
+    build: .
+    image: tp2
+
+  upload:
+    image: tp2
+    depends_on:
+      - base
+    volumes:
+      - ./data:/data
+    command: ["./bin/upload", "/data/input.csv"]
+
+  findrec:
+    image: tp2
+    depends_on:
+      - base
+    volumes:
+      - ./data:/data
+    command: ["./bin/findrec", "9876"]
+
+  seek1:
+    image: tp2
+    depends_on:
+      - base
+    volumes:
+      - ./data:/data
+    command: ["./bin/seek1", "5555"]
+
+  seek2:
+    image: tp2
+    depends_on:
+      - base
+    volumes:
+      - ./data:/data
+    command: ["./bin/seek2", "Outro Titulo de Exemplo"]
