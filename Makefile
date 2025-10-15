@@ -10,7 +10,7 @@ SRCDIR = src
 BINDIR = bin
 
 # Garante que a pasta de binários exista.
-$(shell mkdir -p $(BINDIR))
+$(shell mkdir $(BINDIR))
 
 # Nomes dos programas.
 PROGRAMS = upload findrec seek1 seek2

@@ -4,7 +4,7 @@
 #include <cstring>
 
 int obter_tamanho_bloco_fs(const char* path) {
-
+    
     struct statvfs vfs_info;
 
     if (statvfs(path, &vfs_info) == 0) {
@@ -25,7 +25,7 @@ int obter_tamanho_bloco_fs(const char* path) {
 
 int main() {
     
-    const char* data_dir = "data"; 
+    const char* data_dir = "/data"; 
 
     int fs_block_size = obter_tamanho_bloco_fs(data_dir);
 
