@@ -6,8 +6,8 @@ Implementação do banco de dados.
 
 ## Faz o build
 
-``make docker-build``
+```make docker-build```
 
 ## Executa o upload
 
-``docker-compose run --rm upload``
+```docker run --rm -v $(pwd)/data:/data tp2 ./bin/upload /data/input.csv```
