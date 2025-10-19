@@ -1,5 +1,5 @@
 #ifndef BLOCKMANAGER_HPP
-#define BLOCKMANAGER_HPP
+#define BLOCKMANAGER_HPPt
 
 #include <fstream>
 #include <string>

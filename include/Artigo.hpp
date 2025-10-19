@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+//Estrutura dos artigos no arquivo CSV
 struct Artigo {
 
     int id;
@@ -13,7 +14,7 @@ struct Artigo {
     int citacoes;
     std::string atualizacao;
     std::string snippet;
-
+    
 };
 
 #endif

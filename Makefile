@@ -11,10 +11,15 @@ BINDIR = bin
 
 # --- Definição dos Programas e seus Arquivos Fonte ---
 PROGRAMS = upload findrec seek1 seek2
-UPLOAD_SRCS = $(SRCDIR)/upload.cpp $(SRCDIR)/OSInfo.cpp $(SRCDIR)/Parser.cpp
-FINDREC_SRCS = $(SRCDIR)/findrec.cpp
-SEEK1_SRCS = $(SRCDIR)/seek1.cpp
-SEEK2_SRCS = $(SRCDIR)/seek2.cpp
+
+# Arquivos .cpp que SÃO COMPARTILHADOS por vários programas
+COMMON_SRCS = $(SRCDIR)/BlockManager.cpp $(SRCDIR)/OSInfo.cpp $(SRCDIR)/Parser.cpp
+
+# Arquivos .cpp que são ESPECÍFICOS de cada programa
+UPLOAD_SRCS = $(SRCDIR)/upload.cpp $(COMMON_SRCS)
+FINDREC_SRCS = $(SRCDIR)/findrec.cpp $(COMMON_SRCS)
+SEEK1_SRCS = $(SRCDIR)/seek1.cpp $(COMMON_SRCS)
+SEEK2_SRCS = $(SRCDIR)/seek2.cpp $(COMMON_SRCS)
 
 # --- Regras de Build Automáticas ---
 UPLOAD_OBJS = $(UPLOAD_SRCS:.cpp=.o)
