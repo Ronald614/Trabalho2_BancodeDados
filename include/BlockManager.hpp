@@ -31,7 +31,13 @@ public:
     long getBlockCount();
 
     // Retorna o tamanho configurado para os blocos (em bytes).
-    size_t getBlockSize() const;
+    size_t getBlockSize();
+
+    // Retorna o tamanho do arquivo em bytes
+    long getFileSize(const std::string& filename);
+
+   //Get BlockSize
+   size_t getBlockSize();
 };
 
 #endif // BLOCKMANAGER_HPP

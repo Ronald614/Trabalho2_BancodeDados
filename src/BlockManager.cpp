@@ -29,13 +29,14 @@ BlockManager::~BlockManager() {
 }
 
 // métodos
-
-          
+    
 // Lê o conteúdo de um bloco específico do disco para um buffer.
 void BlockManager::readBlock(long blockId, char* buffer) {
     // Calcula a posição exata do bloco no arquivo em bytes.
-    long offset = blockId * blockSize;
-    fileStream.seekg(offset, std::ios::beg);// O ponteiro de leitura é movido para o início do bloco desejado.
+    long position = blockId * blockSize;
+
+    fileStream.clear(); // limpa flags antigas antes de mover ponteiro
+    fileStream.seekg(position, std::ios::beg);// O ponteiro de leitura é movido para o início do bloco desejado.
     fileStream.read(buffer, blockSize);
 
     if (fileStream.fail() && !fileStream.eof()) {
@@ -47,7 +48,9 @@ void BlockManager::readBlock(long blockId, char* buffer) {
 void BlockManager::writeBlock(long blockId, const char* buffer) {
     // Calcula a posição exata para a escrita.
     long position = blockId * blockSize;
-    fileStream.seekp(position, std::ios::beg);
+
+    fileStream.clear(); // limpa flags antigas antes de mover ponteiro
+    fileStream.seekp(position, std::ios::beg);// O ponteiro de escrita é movido para o início do bloco desejado.
     fileStream.write(buffer, blockSize);
 
     if (fileStream.fail()) {
@@ -60,8 +63,11 @@ void BlockManager::writeBlock(long blockId, const char* buffer) {
 
 // Retorna o número total de blocos atualmente alocados no arquivo.
 long BlockManager::getBlockCount() {
+
+    //Garantir que o arquivo esta atualzado
+    fileStream.flush(); // Garante que todos os dados pendentes sejam escritos no disco.
     fileStream.seekg(0, std::ios::end);
-    long endPosition = fileStream.tellg();
+    long endPosition = fileStream.tellg();//
     // O número de blocos é o tamanho total do arquivo dividido pelo tamanho de um bloco.
     return endPosition / blockSize;
 }
@@ -72,6 +78,20 @@ long BlockManager::allocateBlock() {
     return getBlockCount();
 }
 
-size_t BlockManager::getBlockSize() const {
+long BlockManager::getFileSize(const std::string& filename) {
+    //stream temporario para checar o tamanho do arquivo
+    std::ifstream file(this->filename, std::ios::binary | std::ios::ate);
+
+    if (!file.is_open()) {
+        // Se não conseguiu abrir (provavelmente não existe), o tamanho é 0.
+        return 0;
+    }
+    //posicao final do arquivo
+    long size = file.tellg();
+    file.close();
+    return size;
+}
+
+size_t BlockManager::getBlockSize(){
     return blockSize;
 }
