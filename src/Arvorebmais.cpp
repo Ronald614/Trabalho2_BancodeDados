@@ -18,7 +18,7 @@ BPlusTreeInt::BPlusTreeInt(const std::string& filename, const size_t blockSize_a
     : blockSize(static_cast<int>(blockSize_arg)),
       fileName(filename),
       blockManager(filename, blockSize_arg),
-      rootBlock(-1)
+      positionRoot(-1)
 {
     char* buffer = new char[this->blockSize];
     try { // tentar ler o header do arquivo de índice
@@ -34,12 +34,12 @@ BPlusTreeInt::BPlusTreeInt(const std::string& filename, const size_t blockSize_a
                 delete[] buffer; 
                 throw std::runtime_error("Erro: O tamanho do bloco fornecido é inconsistente com o do arquivo!");
             }
-            this->rootBlock = hdr.root;
+            this->positionRoot = hdr.positionRoot;
 
         } else {
             //Caso o arquivo nao exista, criar o header
             header novoHeader;
-            novoHeader.root = -1;
+            novoHeader.positionRoot = -1;
             novoHeader.blockSize = this->blockSize;
             novoHeader.numBlocos = 1;
 
@@ -114,6 +114,7 @@ void BPlusTreeInt::deserializeNode(const char* buffer, BPlusTreeInt::Node& node)
     }
 }
 
+// Escreve um nó no disco
 void BPlusTreeInt::writeNodeToDisk(BPlusTreeInt::Node* node) {
     char* buffer = new char[blockSize];
     serializeNode(*node, buffer);
@@ -121,6 +122,7 @@ void BPlusTreeInt::writeNodeToDisk(BPlusTreeInt::Node* node) {
     delete[] buffer;
 }
 
+// Lê um nó do disco e o desserializa
 BPlusTreeInt::Node* BPlusTreeInt::readNodeFromDisk(long blockNum, BPlusTreeInt::Node* node) {
     char* buffer = new char[blockSize];
     blockManager.readBlock(blockNum, buffer);
@@ -129,6 +131,51 @@ BPlusTreeInt::Node* BPlusTreeInt::readNodeFromDisk(long blockNum, BPlusTreeInt::
     return node;
 }
 
+//  Escreve o header da árvore B+ no bloco 0 do arquivo de índice.
+void BPlusTreeInt::writeHeader() {
+    // 1. Cria e preenche a struct com os dados atuais.
+    header hdr;
+    hdr.positionRoot = this->positionRoot;
+    hdr.blockSize = this->blockSize;
+    hdr.numBlocos = blockManager.getBlockCount();
+
+    // 2. Aloca um buffer na heap.
+    char* buffer = new char[blockSize];
+    
+    // 3. (Opcional, mas recomendado) Zera o buffer para evitar escrever lixo.
+    memset(buffer, 0, blockSize);
+
+    // 4. Copia os bytes da struct para o início do buffer.
+    memcpy(buffer, &hdr, sizeof(header));
+
+    // 5. Escreve o buffer no bloco 0.
+    blockManager.writeBlock(0, buffer);
+
+    // 6. Libera a memória alocada.
+    delete[] buffer;
+}
+
+// Lê o header da árvore B+ do bloco 0 do arquivo de índice.
+void BPlusTreeInt::readHeader() {
+    // 1. Aloca um buffer na heap para receber os dados.
+    char* buffer = new char[blockSize];
+
+    // 2. Lê o bloco 0 do disco para o buffer.
+    blockManager.readBlock(0, buffer);
+
+    // 3. Cria uma struct para receber a cópia.
+    header hdr;
+    
+    // 4. Copia os bytes do buffer para a struct.
+    memcpy(&hdr, buffer, sizeof(header));
+    
+    // 5. Libera a memória, pois os dados já estão seguros em 'hdr'.
+    delete[] buffer;
+
+    // 6. Atualiza os atributos da classe.
+    this->positionRoot = hdr.positionRoot;
+    this->blockSize = hdr.blockSize;
+}
 
 /**
  * @brief (splitChild) Essa é uma das mais importantes.
@@ -262,8 +309,7 @@ void BPlusTreeInt::insertNonFull(Node* node, int key)
  * Se em algum momento 'key == current->keys[i]', achou (true).
  * Se chegar na folha ('isLeaf') e não achar, não existe (false).
 **/
-template <typename T> bool BPlusTree<T>::search(T key)
-{
+long BPlusTreeInt::search(int key){
     Node* current = root;
     while (current != nullptr) {
         // Acha o primeiro 'i' onde key <= keys[i]
@@ -288,20 +334,28 @@ template <typename T> bool BPlusTree<T>::search(T key)
     return false;
 }
 
-
 /**
  * @brief (insert - public) A que o usuário chama.
  *
  * Lógica: Lida com os dois casos chatos da raiz.
-**/
-template <typename T>
-void BPlusTree<T>::insert(T key)
+**/ 
+void BPlusTreeInt::insert(int key, long dataPointer)
 {
     // CASO 1: Árvore vazia. Eu só crio a 'root' como folha
     // e coloco a chave.
-    if () {
-        root = new Node(true);
-        root->keys.push_back(key);
+    if (positionRoot == -1) {
+        Node* rootNode = new Node(true); // Cria a raiz, que também é uma folha.
+        rootNode->selfPosition = blockManager.allocateBlock(); // Pede um novo bloco no arquivo.
+        this->positionRoot = rootNode->selfPosition; // Atualiza o ponteiro da raiz da árvore.
+
+        rootNode->keys.push_back(key);
+        rootNode->childrenOrPointers.push_back(dataPointer);
+        rootNode->numKeys = 1;
+
+        writeNodeToDisk(rootNode); // Escreve o novo nó raiz no disco.
+        writeHeader(); // Atualiza o header no disco com a nova posição da raiz.
+        delete rootNode; // Libera a memória, já que o nó está salvo em disco.
+        return;
     }
     // CASO 2: Árvore já existe.
     else {

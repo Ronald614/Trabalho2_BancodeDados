@@ -14,17 +14,17 @@ private:
         bool isLeaf;
         int numKeys;
         long next;
-        long selfBlock;
+        long selfPosition;
         std::vector<int> keys;
         std::vector<long> childrenOrPointers; // filhos ou ponteiros para registros
-        Node(bool leaf = false) : isLeaf(leaf), numKeys(0), next(-1), selfBlock(-1) {}
+        Node(bool leaf = false) : isLeaf(leaf), numKeys(0), next(-1), selfPosition(-1) {}
     };
 
     //Como ler o bloco inicial do arquivo de indice
     //importante para a posicao da raiz persistir 
     //e o tamanho de bloco original utilizado na insercao
     struct header{
-        long root;
+        long positionRoot;
         int numBlocos;
         long blockSize;
     };
@@ -35,10 +35,13 @@ private:
     std::string fileName; // nome do arquivo de banco de dados
     int m; // ordem da árvore B+
     BlockManager blockManager; // declarado aqui
-    long rootBlock; // bloco raiz da árvore
+    long positionRoot; // Apontador pra raiz da arvore
 
     // assinaturas privadas
+
     //usado para escrever e ler nós do disco
+    void BPlusTreeInt::writeHeader();
+    void BPlusTreeInt::readHeader();
     void serializeNode(const Node& node, char* buffer); //serializar o no
     void deserializeNode(const char* buffer, Node& node);//desserializar o no
     void writeNodeToDisk(Node* node);//escrever no disco
@@ -54,7 +57,7 @@ public:
     // construtor e métodos públicos
     BPlusTreeInt(const std::string& filename, size_t blockSize);// construtor
     void insert(int key, long dataPointer); // inserir chave com ponteiro para dado
-    bool search(int key);// buscar chave
+    long search(int key);// buscar chave
     std::vector<int> rangeQuery(int lower, int upper);// consulta por intervalo
     void printintree(); // imprimir árvore
 };
