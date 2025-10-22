@@ -64,52 +64,59 @@ BPlusTreeInt::BPlusTreeInt(const std::string& filename, const size_t blockSize_a
     delete[] buffer;
 }
 
-// Converte um objeto Node para um buffer de bytes
+// Converte um objeto Node para um buffer de bytes (CORRIGIDO)
 void BPlusTreeInt::serializeNode(const BPlusTreeInt::Node& node, char* buffer) {
-    // 1. Copia os campos de tamanho fixo
-    char* ptr = buffer; // Ponteiro para a posição atual no buffer
+    char* ptr = buffer; 
 
+    // 1. Copia os campos de tamanho fixo (Isto estava correto)
     memcpy(ptr, &node.isLeaf, sizeof(bool));
     ptr += sizeof(bool);
-
     memcpy(ptr, &node.numKeys, sizeof(int));
     ptr += sizeof(int);
-
     memcpy(ptr, &node.next, sizeof(long));
     ptr += sizeof(long);
 
-    // 2. Copia o conteúdo do vector de chaves
+    // 2. Copia o conteúdo do vector de chaves (Isto estava correto)
     memcpy(ptr, node.keys.data(), node.numKeys * sizeof(int));
     ptr += node.numKeys * sizeof(int);
 
-    // 3. Se não for folha, copia o conteúdo do vector de filhos
-    if (!node.isLeaf) {
+    // 3. Copia os ponteiros (de dados OU de filhos)
+    if (node.isLeaf) {
+        // Se é folha, salva 'numKeys' ponteiros de DADOS
+        memcpy(ptr, node.childrenOrPointers.data(), node.numKeys * sizeof(long));
+        // (Opcional) Mover o ptr: ptr += node.numKeys * sizeof(long);
+    } else {
+        // Se é interno, salva 'numKeys + 1' ponteiros de FILHOS
         memcpy(ptr, node.childrenOrPointers.data(), (node.numKeys + 1) * sizeof(long));
+        // (Opcional) Mover o ptr: ptr += (node.numKeys + 1) * sizeof(long);
     }
 }
 
-// Converte um buffer de bytes de volta para um objeto Node
+// Converte um buffer de bytes de volta para um objeto Node (CORRIGIDO)
 void BPlusTreeInt::deserializeNode(const char* buffer, BPlusTreeInt::Node& node) {
-    const char* ptr = buffer; // Ponteiro para a posição atual no buffer
+    const char* ptr = buffer; 
 
-    // 1. Lê os campos de tamanho fixo
+    // 1. Lê os campos de tamanho fixo (Isto estava correto)
     memcpy(&node.isLeaf, ptr, sizeof(bool));
     ptr += sizeof(bool);
-
     memcpy(&node.numKeys, ptr, sizeof(int));
     ptr += sizeof(int);
-
     memcpy(&node.next, ptr, sizeof(long));
     ptr += sizeof(long);
     
-    // 2. Lê as chaves
-    node.keys.resize(node.numKeys); // IMPORTANTE: Alocar espaço no vector
+    // 2. Lê as chaves (Isto estava correto)
+    node.keys.resize(node.numKeys); 
     memcpy(node.keys.data(), ptr, node.numKeys * sizeof(int));
     ptr += node.numKeys * sizeof(int);
 
-    // 3. Se não for folha, lê os filhos
-    if (!node.isLeaf) {
-        node.childrenOrPointers.resize(node.numKeys + 1); // IMPORTANTE: Alocar espaço
+    // 3. Lê os ponteiros (de dados OU de filhos)
+    if (node.isLeaf) {
+        // Se é folha, lê 'numKeys' ponteiros de DADOS
+        node.childrenOrPointers.resize(node.numKeys); 
+        memcpy(node.childrenOrPointers.data(), ptr, node.numKeys * sizeof(long));
+    } else {
+        // Se é interno, lê 'numKeys + 1' ponteiros de FILHOS
+        node.childrenOrPointers.resize(node.numKeys + 1); 
         memcpy(node.childrenOrPointers.data(), ptr, (node.numKeys + 1) * sizeof(long));
     }
 }
@@ -118,7 +125,7 @@ void BPlusTreeInt::deserializeNode(const char* buffer, BPlusTreeInt::Node& node)
 void BPlusTreeInt::writeNodeToDisk(BPlusTreeInt::Node* node) {
     char* buffer = new char[blockSize];
     serializeNode(*node, buffer);
-    blockManager.writeBlock(node->selfBlock, buffer);
+    blockManager.writeBlock(node->selfPosition, buffer);
     delete[] buffer;
 }
 
@@ -127,6 +134,7 @@ BPlusTreeInt::Node* BPlusTreeInt::readNodeFromDisk(long blockNum, BPlusTreeInt::
     char* buffer = new char[blockSize];
     blockManager.readBlock(blockNum, buffer);
     deserializeNode(buffer, *node);
+    node->selfPosition = blockNum;
     delete[] buffer;
     return node;
 }
@@ -177,127 +185,265 @@ void BPlusTreeInt::readHeader() {
     this->blockSize = hdr.blockSize;
 }
 
+
+
 /**
- * @brief (splitChild) Essa é uma das mais importantes.
+ * @brief (splitChild) REESCRITO PARA DISCO
  *
- * Lógica: Quando um nó filho ('child') tá lotado (2*t - 1 chaves)
- * e a gente tenta inserir mais, essa função é chamada.
+ * @param parent O nó pai (JÁ EM MEMÓRIA) que será modificado.
+ * @param childIndex O índice (em parent->childrenOrPointers) do filho que está lotado.
 **/ 
-void BPlusTreeInt::splitChild(Node* parent, int index,Node* child){
-    // [Sua Nota] Cria um novo nó "irmão", com o mesmo status (folha ou não)
-    // do nó que será dividido.
-    Node* newChild = new Node(child->isLeaf);
+void BPlusTreeInt::splitChild(Node* parent, int childIndex){
+    
+    // 1. Cria o novo "irmão" (newSibling) e aloca um bloco para ele no disco
+    Node* newSibling = new Node();
+    newSibling->selfPosition = blockManager.allocateBlock();
 
-    // [Sua Nota] Insere o 'newChild' no vetor de filhos do 'parent',
-    // na posição 'index + 1' (logo ao lado do 'child' original).
-    parent->children.insert(
-        parent->children.begin() + index + 1, newChild);
+    // 2. Carrega o filho lotado ('child') do disco
+    long childOffset = parent->childrenOrPointers[childIndex];
+    Node* child = new Node();
+    readNodeFromDisk(childOffset, child);
+    
+    // 3. Define o status do novo irmão (folha ou não)
+    newSibling->isLeaf = child->isLeaf;
 
-    // [Sua Nota] "Promove" a chave do meio (m-1) do 'child' lotado
-    // para o 'parent', na posição 'index'.
-    parent->keys.insert(parent->keys.begin() + index,
-                        child->keys[m - 1]);
+    // 4. Calcula o "ponto do meio" para o split
+    int middleIndex;
+    int keyToPromote; // A chave que vai subir para o 'parent'
 
-    // [Sua Nota] Copia a "metade direita" das chaves do 'child'
-    // original para o 'newChild'.
-    newChild->keys.assign(child->keys.begin() + m,
-                          child->keys.end());
-
-    // [Sua Nota] Reduz o tamanho do 'child' original para que ele
-    // contenha apenas a "metade esquerda" das chaves.
-    child->keys.resize(m - 1);
-
-    // [Sua Nota] Se o 'child' NÃO for uma folha (for um nó interno),
-    // temos que dividir também o vetor de 'children' dele.
-    if (!child->isLeaf) {
-        // [Sua Nota] O 'newChild' fica com a "metade direita" dos filhos.
-        newChild->children.assign(child->children.begin() + m,
-                                  child->children.end());
-        // [Sua Nota] O 'child' original fica com a "metade esquerda" dos filhos.
-        child->children.resize(m);
-    }
-
-    // Se o 'child' FOR uma folha, precisamos atualizar a "lista ligada"
-    // de folhas (a corrente 🔗 que falamos).
     if (child->isLeaf) {
-        // O 'newChild' aponta para quem o 'child' apontava antes.
-        newChild->next = child->next;
-        // O 'child' agora aponta para o 'newChild'.
-        // Ordem: child -> newChild -> (o que era o next do child)
-        child->next = newChild;
+        // --- Split de NÓ FOLHA ---
+        // 'm' é o n° max de pares. Um nó folha lotado tem 'm' chaves.
+        // Ponto do meio: m / 2.
+        middleIndex = m / 2;
+        
+        // A chave no 'middleIndex' é a primeira a ir para o novo irmão.
+        // Em uma B+ Tree, a chave promovida de uma folha é COPIADA, não movida.
+        keyToPromote = child->keys[middleIndex]; 
+
+        // Copia a "metade direita" (chaves) para o novo irmão
+        newSibling->keys.assign(child->keys.begin() + middleIndex, child->keys.end());
+        // Copia a "metade direita" (ponteiros de DADOS)
+        newSibling->childrenOrPointers.assign(child->childrenOrPointers.begin() + middleIndex, child->childrenOrPointers.end());
+
+        // Atualiza os contadores de chaves
+        newSibling->numKeys = m - middleIndex;
+        child->numKeys = middleIndex;
+        
+        // Atualiza os vetores do filho antigo (trunca)
+        child->keys.resize(middleIndex);
+        child->childrenOrPointers.resize(middleIndex);
+
+        // Atualiza a lista ligada de folhas
+        newSibling->next = child->next;
+        child->next = newSibling->selfPosition;
+
+    } else {
+        // --- Split de NÓ INTERNO ---
+        // Um nó interno lotado tem 'm-1' chaves (e 'm' filhos).
+        // Ponto do meio: (m-1) / 2
+        middleIndex = (m - 1) / 2;
+
+        // A chave do meio é MOVIDA para o pai.
+        keyToPromote = child->keys[middleIndex];
+
+        // Copia a "metade direita" (chaves) para o novo irmão
+        // (sem incluir a chave promovida)
+        newSibling->keys.assign(child->keys.begin() + middleIndex + 1, child->keys.end());
+        // Copia a "metade direita" (ponteiros de FILHOS)
+        newSibling->childrenOrPointers.assign(child->childrenOrPointers.begin() + middleIndex + 1, child->childrenOrPointers.end());
+        
+        // Atualiza os contadores de chaves
+        newSibling->numKeys = (m - 1) - (middleIndex + 1);
+        child->numKeys = middleIndex;
+
+        // Atualiza os vetores do filho antigo (trunca)
+        child->keys.resize(middleIndex);
+        child->childrenOrPointers.resize(middleIndex + 1); // Nós internos têm numKeys+1 filhos
     }
+
+    // 5. ATUALIZA O NÓ PAI (que já estava em memória)
+    // Insere a chave promovida
+    parent->keys.insert(parent->keys.begin() + childIndex, keyToPromote);
+    // Insere o ponteiro para o novo irmão
+    parent->childrenOrPointers.insert(parent->childrenOrPointers.begin() + childIndex + 1, newSibling->selfPosition);
+    parent->numKeys++;
+
+    // 6. ESCREVE OS 3 NÓS MODIFICADOS DE VOLTA NO DISCO
+    writeNodeToDisk(parent);
+    writeNodeToDisk(child);
+    writeNodeToDisk(newSibling);
+
+    // 7. Limpa a memória
+    delete child;
+    delete newSibling;
 }
 
 /**
- * @brief Insere uma chave em um nó que *tem certeza* que não está cheio.
- * [Sua Nota] Esta é a função "trabalhadora" recursiva. A 'insert' pública
- * chama esta, e esta função "desce" pela árvore até encontrar o local certo.
+ * @brief Insere (key, dataPointer) em um nó que *não* está cheio.
+ * REESCRITO PARA DISCO
  *
- * @param node O nó atual que estamos inspecionando (começa com a raiz).
- * @param key A chave (do tipo genérico int) que queremos inserir.
+ * @param node O nó atual (JÁ EM MEMÓRIA) que estamos inspecionando.
+ * @param key A chave que queremos inserir.
+ * @param dataPointer O ponteiro de dado associado.
 **/
-void BPlusTreeInt::insertNonFull(Node* node, int key)
+void BPlusTreeInt::insertNonFull(Node* node, int key, long dataPointer)
 {
     // ==========================================================
     // CASO BASE (Recursão para aqui)
     // ==========================================================
-    // [Sua Nota] Se o nó atual é uma folha, este é o fim da linha.
-    // É aqui que a chave deve ser realmente inserida.
     if (node->isLeaf) {
+        // Nó é folha. Encontra a posição correta e insere.
         
-        // [Sua Nota] Encontra a posição correta para inserir a chave
-        // mantendo o vetor 'keys' ordenado.
-        //
-        // std::upper_bound: Encontra o primeiro elemento que é
-        // *maior* que 'key'. Inserir a 'key' *antes* dele
-        // mantém a ordem perfeitamente.
-        node->keys.insert(
-            upper_bound(node->keys.begin(), node->keys.end(), key),
-            key
-        );
+        // std::lower_bound: Encontra o primeiro elemento que é >= key.
+        auto it = std::lower_bound(node->keys.begin(), node->keys.end(), key);
+        int i = std::distance(node->keys.begin(), it);
+
+        // Insere a chave
+        node->keys.insert(node->keys.begin() + i, key);
+        // Insere o ponteiro de DADO
+        node->childrenOrPointers.insert(node->childrenOrPointers.begin() + i, dataPointer);
+        node->numKeys++;
+        
+        // Escreve o nó modificado de volta no disco
+        writeNodeToDisk(node);
     }
     // ==========================================================
     // CASO RECURSIVO (Nó interno)
     // ==========================================================
-    // [Sua Nota] Se não é uma folha, é um nó interno (um "guia").
-    // Precisamos decidir para qual "porta" (filho) devemos descer.
     else {
-        // [Sua Nota] Procura o índice do filho correto, começando
-        // da direita para a esquerda.
-        int i = node->keys.size() - 1;
-        while (i >= 0 && key < node->keys[i]) {
-            i--;
-        }
+        // Nó é interno. Encontra o filho correto para descer.
         
-        // [Sua Nota] O loop parou na chave *antes* do caminho que
-        // queremos. O caminho correto é 'i + 1'.
-        i++; 
+        // Procura o índice do filho correto,
+        // Encontra a primeira chave > key
+        auto it = std::upper_bound(node->keys.begin(), node->keys.end(), key);
+        int i = std::distance(node->keys.begin(), it);
+        
+        // 'i' é o índice do ponteiro do filho para onde devemos descer.
 
         // ==========================================================
-        // A "MÁGICA" DA B+ intREE: Dividir antes de descer
+        // A "MÁGICA" DA B+ TREE: Dividir antes de descer
         // ==========================================================
-        // [Sua Nota] Verificamos se a "gaveta" (filho) para onde
-        // vamos descer está LOintADA. (2*m - 1 é o n° máximo de chaves).
-        if (node->children[i]->keys.size() == 2 * m - 1) {
+
+        // 1. Carrega o filho 'i' do disco para checar se está lotado
+        long childOffset = node->childrenOrPointers[i];
+        Node* childNode = new Node();
+        readNodeFromDisk(childOffset, childNode);
+
+        // 2. Define a capacidade máxima do filho
+        bool childIsFull = false;
+        if (childNode->isLeaf) {
+            if (childNode->numKeys == m) { // Folha lota com 'm'
+                childIsFull = true;
+            }
+        } else {
+            if (childNode->numKeys == m - 1) { // Interno lota com 'm-1'
+                childIsFull = true;
+            }
+        }
+
+        // 3. Se o filho estiver lotado, divide ele AGORA.
+        if (childIsFull) {
+            // 'node' é o pai (em memória), 'i' é o índice do filho
+            splitChild(node, i); 
             
-            // [Sua Nota] Se estiver lotada, chamamos 'splitChild'
-            // para dividi-la AGORA, *antes* de descermos.
-            splitChild(node, i, node->children[i]);
-
-            // [Sua Nota] Após a divisão, uma chave do filho subiu
-            // para este nó ('node') na posição 'i'.
-            // Precisamos checar se a 'key' que queremos inserir
-            // é maior que essa chave que acabou de subir.
-            // Se for, o caminho certo agora é o *novo* irmão (i + 1).
+            // O split ALTEROU o 'node' (pai).
+            // Precisamos checar se a 'key' agora pertence
+            // ao novo irmão (que está em 'i+1').
             if (key > node->keys[i]) {
                 i++;
             }
+        
+            // O 'childNode' que tínhamos carregado está obsoleto/foi deletado
+            // pelo splitChild. Recarregamos o nó filho correto (agora com espaço).
+            childOffset = node->childrenOrPointers[i];
+            readNodeFromDisk(childOffset, childNode);
+            
+        } 
+        
+        // 4. Agora temos CERTEZA que o 'childNode' (filho[i]) tem espaço.
+        // Chamamos a recursão para descer um nível.
+        insertNonFull(childNode, key, dataPointer);
+        
+        // 5. Limpa a memória
+        delete childNode;
+    }
+}
+
+/**
+ * @brief (insert - public) A que o usuário chama.
+ * TRADUZIDO PARA DISCO
+**/ 
+void BPlusTreeInt::insert(int key, long dataPointer)
+{
+    // CASO 1: Árvore vazia. Eu só crio a 'root' como folha
+    // e coloco a chave.
+    if (positionRoot == -1) {
+        Node* rootNode = new Node(true); // Cria a raiz, que também é uma folha.
+        rootNode->selfPosition = blockManager.allocateBlock(); 
+        this->positionRoot = rootNode->selfPosition; 
+
+        rootNode->keys.push_back(key);
+        rootNode->childrenOrPointers.push_back(dataPointer);
+        rootNode->numKeys = 1;
+
+        writeNodeToDisk(rootNode); 
+        writeHeader(); 
+        delete rootNode; 
+        return;
+    }
+    // CASO 2: Árvore já existe.
+    else {
+        // 1. Carrega o nó raiz ATUAL do disco para a memória.
+        Node* rootNode = new Node();
+        readNodeFromDisk(this->positionRoot, rootNode);
+
+        // 2. Verifica se a raiz está lotada
+        bool rootIsFull = false;
+        if (rootNode->isLeaf) {
+            if (rootNode->numKeys == m) { // Folha lota com 'm'
+                rootIsFull = true;
+            }
+        } else {
+            if (rootNode->numKeys == m - 1) { // Interno lota com 'm-1'
+                rootIsFull = true;
+            }
+        }
+
+        // Sub-caso: A *raiz* tá lotada.
+        // A raiz não tem pai, então eu não posso só chamar 'splitChild'.
+        if (rootIsFull) {
+            // A. Cria uma NOVA raiz (na memória)
+            Node* newRootNode = new Node(false); // Nova raiz NUNCA é folha (porque vai ter filhos)
+            newRootNode->selfPosition = blockManager.allocateBlock(); 
+
+            // B. O primeiro filho da nova raiz é a RAIZ ANTIGA (a posição dela)
+            newRootNode->childrenOrPointers.push_back(this->positionRoot); 
+            // (numKeys da newRootNode ainda é 0)
+
+            // C. ATUALIZA a raiz da árvore (na classe e no header)
+            this->positionRoot = newRootNode->selfPosition;
+            writeHeader();
+
+            // D. Chama splitChild. 
+            // Pai = newRootNode (em memória), Índice do filho lotado = 0
+            splitChild(newRootNode, 0); 
+            
+            // E. Agora, o newRootNode tem 1 chave.
+            // Precisamos decidir para qual filho descer
+            insertNonFull(newRootNode, key, dataPointer);
+
+            // F. Limpa a memória
+            delete newRootNode;
+        } 
+        // 4. Sub-caso: A raiz NÃO está lotada.
+        else {
+            // A raiz tem espaço. Só chama a inserção nela.
+            insertNonFull(rootNode, key, dataPointer);
         }
         
-        // [Sua Nota] Agora temos CERintEZA que o filho 'children[i]'
-        // tem espaço. Chamamos a mesma função de novo, mas
-        // um nível abaixo (no filho que escolhemos).
-        insertNonFull(node->children[i], key);
+        // Limpa o rootNode que carregamos no início
+        delete rootNode; 
     }
 }
 
@@ -308,73 +454,51 @@ void BPlusTreeInt::insertNonFull(Node* node, int key)
  * ela acha o caminho certo ('i') pra descer.
  * Se em algum momento 'key == current->keys[i]', achou (true).
  * Se chegar na folha ('isLeaf') e não achar, não existe (false).
-**/
+ */
 long BPlusTreeInt::search(int key){
-    Node* current = root;
-    while (current != nullptr) {
-        // Acha o primeiro 'i' onde key <= keys[i]
+    if (positionRoot == -1) {
+        return -1; // Árvore vazia
+    }
+
+    Node* current = new Node();
+    readNodeFromDisk(positionRoot, current);
+
+    while (true) {
+        
+        // Encontra o primeiro índice 'i' onde key <= current->keys[i]
         int i = 0;
-        while (i < current->keys.size()
-               && key > current->keys[i]) {
+        while (i < current->numKeys && key > current->keys[i]) {
             i++;
         }
-        // Achou!
-        if (i < current->keys.size()
-            && key == current->keys[i]) {
-            return true;
-        }
-        // Chegou na folha e não achou. Fim.
+        // Agora, 'i' é o índice do primeiro elemento >= key
+
         if (current->isLeaf) {
-            return false;
+            // --- Está na folha ---
+            // Verifica se a chave no índice 'i' é a que procuramos
+            if (i < current->numKeys && current->keys[i] == key) {
+                // Achou! Retorna o ponteiro de dado.
+                long dataPtr = current->childrenOrPointers[i];
+                delete current;
+                return dataPtr;
+            } else {
+                // Não achou.
+                delete current;
+                return -1;
+            }
+        } else {
+            // --- É nó interno ---
+            
+            // Se a chave for EXATAMENTE igual a uma chave interna, na B+ Tree
+            // o valor está na sub-árvore da DIREITA daquela chave.
+            if (i < current->numKeys && current->keys[i] == key) {
+                 i++;
+            }
+            
+            // 'i' é o índice do filho para onde descer.
+            long childPosition = current->childrenOrPointers[i];
+            
+            // Reutiliza o ponteiro 'current' para carregar o filho.
+            readNodeFromDisk(childPosition, current); 
         }
-        // Desce pro filho certo
-        current = current->children[i];
-    }
-    // 'root' era nula.
-    return false;
-}
-
-/**
- * @brief (insert - public) A que o usuário chama.
- *
- * Lógica: Lida com os dois casos chatos da raiz.
-**/ 
-void BPlusTreeInt::insert(int key, long dataPointer)
-{
-    // CASO 1: Árvore vazia. Eu só crio a 'root' como folha
-    // e coloco a chave.
-    if (positionRoot == -1) {
-        Node* rootNode = new Node(true); // Cria a raiz, que também é uma folha.
-        rootNode->selfPosition = blockManager.allocateBlock(); // Pede um novo bloco no arquivo.
-        this->positionRoot = rootNode->selfPosition; // Atualiza o ponteiro da raiz da árvore.
-
-        rootNode->keys.push_back(key);
-        rootNode->childrenOrPointers.push_back(dataPointer);
-        rootNode->numKeys = 1;
-
-        writeNodeToDisk(rootNode); // Escreve o novo nó raiz no disco.
-        writeHeader(); // Atualiza o header no disco com a nova posição da raiz.
-        delete rootNode; // Libera a memória, já que o nó está salvo em disco.
-        return;
-    }
-    // CASO 2: Árvore já existe.
-    else {
-        // Sub-caso: A *raiz* tá lotada.
-        // A raiz não tem pai, então eu não posso só chamar 'splitChild'.
-        if (root->keys.size() == 2 * t - 1) {
-            // 1. Crio um 'newRoot' (que não é folha).
-            Node* newRoot = new Node();
-            // 2. Faço o 'root' antigo virar filho ('children[0]') do 'newRoot'.
-            newRoot->children.push_back(root);
-            // 3. Chamo 'splitChild' pra dividir o 'root' antigo,
-            //    subindo a chave do meio pro 'newRoot'.
-            splitChild(newRoot, 0, root);
-            // 4. Faço o 'root' da árvore apontar pro 'newRoot'.
-            //    A árvore cresceu 1 nível.
-            root = newRoot;
-        }
-        // Depois de resolver esses casos, eu chamo a 'insertNonFull'
-        // pra fazer o trabalho de verdade.
-        insertNonFull(root, key);
     }
 }

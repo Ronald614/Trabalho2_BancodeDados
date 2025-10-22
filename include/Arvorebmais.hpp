@@ -15,7 +15,7 @@ private:
         int numKeys;
         long next;
         long selfPosition;
-        std::vector<int> keys;
+        std::vector<int> keys; 
         std::vector<long> childrenOrPointers; // filhos ou ponteiros para registros
         Node(bool leaf = false) : isLeaf(leaf), numKeys(0), next(-1), selfPosition(-1) {}
     };
@@ -49,8 +49,8 @@ private:
     
 
     // usado na logica da arvore
-    void splitChild(Node* parent, int index, Node* child);// dividir filho (usado na insercao)
-    void insertNonFull(Node* node, int key); // inserir em no nao cheio (usado na insercao)
+    void splitChild(Node* parent, int childIndex);// dividir filho (usado na insercao)
+    void insertNonFull(Node* node, int key, long dataPointer); // inserir em no nao cheio (usado na insercao)
     void printintree(Node* node, int level); // imprimir arvore recursivamente
    
 public:
