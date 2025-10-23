@@ -4,7 +4,8 @@
 
 int main(int argc, char* argv[]){
     if(argc < 2){
-        std::cin << "Erro o numero de argumentos esta errado" << std::end;
+        std::cerr << "Erro o numero de argumentos esta errado" << std::endl;
+        return 1;
     }
     std::string nome_arquivo = argv[1];
     BPlusTreeInt arvore(nome_arquivo, 4096);

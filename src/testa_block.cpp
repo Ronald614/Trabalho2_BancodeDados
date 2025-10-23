@@ -18,12 +18,12 @@ int main(int argc, char* argv[]){
 
     int Block_Size = obter_tamanho_bloco_fs(path);
 
-    GerenciaBlocos gerenciador = BlockManager(path, Block_Size);
+    GerenciaBlocos gerenciador = GerenciaBlocos(path, Block_Size);
 
-    long primeiro = gerenciador.allocateBlock();
+    long primeiro = gerenciador.retornaNovoId();
     std::cout << "primeiro:" << primeiro << "\n";
 
-    long segundo = gerenciador.allocateBlock();
+    long segundo = gerenciador.retornaNovoId();
     std::cout << "segundo:" << segundo << "\n";
 
 }
