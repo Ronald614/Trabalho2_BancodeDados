@@ -3,62 +3,60 @@
 
 #include <string>
 #include <vector>
-#include "BlockManager.hpp"
+#include "GerenciaBlocos.hpp"
 
 
-#pragma pack(push, 1) // Evitar padding nas structs node e header
+#pragma pack(push, 1) // Evitar padding nas structs No e header
 class BPlusTreeInt {
 private:
     //As structs a seguir representam os nós e o cabeçalho do arquivo de índice.
-    struct Node {
-        bool isLeaf;
-        int numKeys;
-        long next;
-        long selfPosition;
-        std::vector<int> keys; 
-        std::vector<long> childrenOrPointers; // filhos ou ponteiros para registros
-        Node(bool leaf = false) : isLeaf(leaf), numKeys(0), next(-1), selfPosition(-1) {}
+    struct No {
+        bool ehFolha;
+        int numChaves;
+        long proximo;
+        long selfId;
+        std::vector<int> vetorChaves; 
+        std::vector<long> vetorApontadores; // filhos ou ponteiros para registros
+        No(bool ehFolha = false) : ehFolha(ehFolha), numChaves(0), proximo(-1), selfId(-1) {}
     };
 
     //Como ler o bloco inicial do arquivo de indice
     //importante para a posicao da raiz persistir 
     //e o tamanho de bloco original utilizado na insercao
-    struct header{
-        long positionRoot;
+    struct cabecalho{
+        long idRaiz;
         int numBlocos;
-        long blockSize;
+        long tamanhoBloco;
     };
 
-
     // atributos privados
-    int blockSize; // tamanho do bloco em bytes, declarar antes de m !
-    std::string fileName; // nome do arquivo de banco de dados
-    int m; // ordem da árvore B+
-    BlockManager blockManager; // declarado aqui
-    long positionRoot; // Apontador pra raiz da arvore
+    int tamanhoBloco; // tamanho do bloco em bytes, declarar antes de m !
+    std::string nomeArquivo; // nome do arquivo de banco de dados
+    int m; // ordem da árvore B+ valor maximo de chaves por nó 
+    GerenciaBlocos gerenciador; // declarado aqui
+    long idRaiz; // Apontador pra raiz da arvore
 
     // assinaturas privadas
 
     //usado para escrever e ler nós do disco
-    void writeHeader();
-    void readHeader();
-    void serializeNode(const Node& node, char* buffer); //serializar o no
-    void deserializeNode(const char* buffer, Node& node);//desserializar o no
-    void writeNodeToDisk(Node* node);//escrever no disco
-    Node* readNodeFromDisk(long blockNum, Node* node);//ler do disco
+    void escreverCabecalho();
+    void lerCabecalho();
+    void serializaNo(const No& no, char* buffer); //serializar o no
+    void deserializaNo(const char* buffer, No& no);//desserializar o no
+    void escreverNo(No* no);//escrever no disco
+    No* lerNo(long idBloco, No* no);//ler do disco
     
 
     // usado na logica da arvore
-    void splitChild(Node* parent, int childIndex);// dividir filho (usado na insercao)
-    void insertNonFull(Node* node, int key, long dataPointer); // inserir em no nao cheio (usado na insercao)
-    void printintree(Node* node, int level); // imprimir arvore recursivamente
+    void splitChild(No* parent, int childIndex);// dividir filho (usado na insercao)
+    void insertNonFull(No* No, int key, long dataPointer); // inserir em no nao cheio (usado na insercao)
+    void printintree(No* No, int level); // imprimir arvore recursivamente
    
 public:
     // construtor e métodos públicos
-    BPlusTreeInt(const std::string& filename, size_t blockSize);// construtor
-    void insert(int key, long dataPointer); // inserir chave com ponteiro para dado
-    long search(int key);// buscar chave
-    std::vector<int> rangeQuery(int lower, int upper);// consulta por intervalo
+    BPlusTreeInt(const std::string& nomeArquivo, size_t tamanhoBloco);// construtor
+    void insert(int chave, long apontadorDados); // inserir chave com ponteiro para dado
+    long search(int chave);// buscar chave
     void printintree(); // imprimir árvore
 };
 #pragma pack(pop) // Restaura o alinhamento padrão
