@@ -195,7 +195,7 @@ void BPlusTreeInt::splitChild(No* parent, int childIndex){
     
     // 1. Cria o novo "irmão" (newSibling) e aloca um bloco para ele no disco
     No* newSibling = new No();
-    newSibling->selfId = gerenciador.allocateBlock();
+    newSibling->selfId = gerenciador.retornaNovoId();
 
     // 2. Carrega o filho lotado ('child') do disco
     long childOffset = parent->vetorApontadores[childIndex];
@@ -268,9 +268,9 @@ void BPlusTreeInt::splitChild(No* parent, int childIndex){
     parent->numChaves++;
 
     // 6. ESCREVE OS 3 NÓS MODIFICADOS DE VOLTA NO DISCO
-    writeNoToDisk(parent);
-    writeNoToDisk(child);
-    writeNoToDisk(newSibling);
+    escreverNo(parent);
+    escreverNo(child);
+    escreverNo(newSibling);
 
     // 7. Limpa a memória
     delete child;
@@ -304,7 +304,7 @@ void BPlusTreeInt::insertNonFull(No* No, int key, long dataPointer)
         No->numChaves++;
         
         // Escreve o nó modificado de volta no disco
-        writeNoToDisk(No);
+        escreverNo(No);
     }
     // ==========================================================
     // CASO RECURSIVO (Nó interno)
