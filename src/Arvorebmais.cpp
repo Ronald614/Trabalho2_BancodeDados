@@ -52,7 +52,7 @@ BPlusTreeInt::BPlusTreeInt(const std::string& filename, const size_t blockSize_a
         }
 
         // Calcula 'm' depois de tudo estar definido.
-        int overhead = sizeof(bool) + sizeof(int) + 2 * sizeof(long);
+        int overhead = sizeof(bool) + sizeof(int) + sizeof(long);
         m = floor((this->blockSize - overhead) / (sizeof(int) + sizeof(long)));
 
     } catch (const std::exception& e) {
@@ -184,8 +184,6 @@ void BPlusTreeInt::readHeader() {
     this->positionRoot = hdr.positionRoot;
     this->blockSize = hdr.blockSize;
 }
-
-
 
 /**
  * @brief (splitChild) REESCRITO PARA DISCO
@@ -456,6 +454,7 @@ void BPlusTreeInt::insert(int key, long dataPointer)
  * Se chegar na folha ('isLeaf') e não achar, não existe (false).
  */
 long BPlusTreeInt::search(int key){
+
     if (positionRoot == -1) {
         return -1; // Árvore vazia
     }
@@ -501,4 +500,32 @@ long BPlusTreeInt::search(int key){
             readNodeFromDisk(childPosition, current); 
         }
     }
+}
+
+// --- IMPLEMENTAÇÃO PÚBLICA DE PRINTINTREE ---
+// O testa_arvore.cpp chama esta função.
+void BPlusTreeInt::printintree() {
+    
+    std::cout << "--- BPlusTreeInt::printintree() ---" << std::endl;
+    
+    // Se a raiz ainda não existe (árvore vazia)
+    if (positionRoot == -1) {
+        std::cout << "(Arvore Vazia)" << std::endl;
+        return;
+    }
+
+    // Tenta carregar o nó raiz
+    Node* rootNode = new Node();
+    readNodeFromDisk(positionRoot, rootNode); // Assumindo que readNodeFromDisk funciona
+
+    if (rootNode == nullptr) {
+        std::cout << "Erro ao ler o no raiz." << std::endl;
+    } else {
+        // Agora chama a sua função auxiliar recursiva (que você já deve ter)
+        // Se você também não implementou a auxiliar, crie um stub para ela também.
+        printintree(rootNode, 0); 
+    }
+
+    delete rootNode;
+    std::cout << "---------------------------------" << std::endl;
 }

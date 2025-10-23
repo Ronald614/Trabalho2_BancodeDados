@@ -40,8 +40,8 @@ private:
     // assinaturas privadas
 
     //usado para escrever e ler nós do disco
-    void BPlusTreeInt::writeHeader();
-    void BPlusTreeInt::readHeader();
+    void writeHeader();
+    void readHeader();
     void serializeNode(const Node& node, char* buffer); //serializar o no
     void deserializeNode(const char* buffer, Node& node);//desserializar o no
     void writeNodeToDisk(Node* node);//escrever no disco
