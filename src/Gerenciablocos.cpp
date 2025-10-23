@@ -72,11 +72,12 @@ void GerenciaBlocos::escreveBloco(long idBloco, const char* buffer) {
 
 
 //Define um id com base no final do arquivo
+// se arquivo tem tam 3, ele vai adicionar no 4 (no caso 4096*3= 12288)
 long GerenciaBlocos::retornaNovoId() {
 
     //Garantir que o arquivo esta atualizado
-    fileStream.flush(); // Garante que todos os dados pendentes sejam escritos no disco.
-    fileStream.seekg(0, std::ios::end);
+    fileStream.flush(); // Garante que todos os dados pendentes sejam escritos no disco. (escreve tudo que ta no buffer no arq q quero saber o tamanho real do arq)
+    fileStream.seekg(0, std::ios::end); // move oo cursor para final do arquivo (se seu arq tem size 300, ta em 300)
     long endPosition = fileStream.tellg();
     // O número de blocos é o tamanho total do arquivo dividido pelo tamanho de um bloco.
     return endPosition / this->tamanhoBloco;
