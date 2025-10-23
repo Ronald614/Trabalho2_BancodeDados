@@ -65,7 +65,7 @@ BPlusTreeInt::BPlusTreeInt(const std::string& nomeArquivo, const size_t tamanhoB
 }
 
 // Converte um objeto No para um buffer de bytes (CORRIGIDO)
-void BPlusTreeInt::serializaNo(const BPlusTreeInt::No& No, char* buffer) {
+void serializaNo(const No& No, char* buffer) {
     char* ptr = buffer; 
 
     // 1. Copia os campos de tamanho fixo (Isto estava correto)
@@ -93,7 +93,7 @@ void BPlusTreeInt::serializaNo(const BPlusTreeInt::No& No, char* buffer) {
 }
 
 // Converte um buffer de bytes de volta para um objeto No (CORRIGIDO)
-void BPlusTreeInt::deserializaNo(const char* buffer, BPlusTreeInt::No& No) {
+void BPlusTreeInt::deserializaNo(const char* buffer, No& No) {
     const char* ptr = buffer; 
 
     // 1. Lê os campos de tamanho fixo (Isto estava correto)
@@ -122,7 +122,7 @@ void BPlusTreeInt::deserializaNo(const char* buffer, BPlusTreeInt::No& No) {
 }
 
 // Escreve um nó no disco
-void BPlusTreeInt::escreverNo(BPlusTreeInt::No* No) {
+void BPlusTreeInt::escreverNo(No* No) {
     char* buffer = new char[tamanhoBloco];
     serializaNo(*No, buffer);
     gerenciador.escreveBloco(No->selfId, buffer);
@@ -130,7 +130,7 @@ void BPlusTreeInt::escreverNo(BPlusTreeInt::No* No) {
 }
 
 // Lê um nó do disco e o desserializa
-BPlusTreeInt::No* BPlusTreeInt::lerNo(long blockNum, BPlusTreeInt::No* No) {
+No* BPlusTreeInt::lerNo(long blockNum, No* No) {
     char* buffer = new char[tamanhoBloco];
     gerenciador.lerBloco(blockNum, buffer);
     deserializaNo(buffer, *No);
