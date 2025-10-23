@@ -1,4 +1,4 @@
-#include "BlockManager.hpp"
+#include "GerenciaBlocos.hpp"
 #include "OSInfo.hpp"
 
 int main(int argc, char* argv[]){
@@ -18,7 +18,7 @@ int main(int argc, char* argv[]){
 
     int Block_Size = obter_tamanho_bloco_fs(path);
 
-    BlockManager gerenciador = BlockManager(path, Block_Size);
+    GerenciaBlocos gerenciador = BlockManager(path, Block_Size);
 
     long primeiro = gerenciador.allocateBlock();
     std::cout << "primeiro:" << primeiro << "\n";

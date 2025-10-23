@@ -21,8 +21,8 @@ BPlusTreeInt::BPlusTreeInt(const std::string& nomeArquivo, const size_t tamanhoB
       idRaiz(-1)
 {
     char* buffer = new char[this->tamanhoBloco];
-    try { // tentar ler o cabecalho do arquivo de índice
-        // a arvore existe
+    try { 
+        //se a arvore existe o arquivo tem algo
         if (gerenciador.getTamanhoArquivo() > 0){
 
             gerenciador.lerBloco(0, buffer);
@@ -52,8 +52,8 @@ BPlusTreeInt::BPlusTreeInt(const std::string& nomeArquivo, const size_t tamanhoB
         }
 
         // Calcula 'm' depois de tudo estar definido.
-        int overhead = sizeof(bool) + sizeof(int) + sizeof(long);
-        m = floor((this->tamanhoBloco - overhead) / (sizeof(int) + sizeof(long)));
+        int tamMetadados = sizeof(bool) + sizeof(int) + sizeof(long) + sizeof(long);
+        m = floor((this->tamanhoBloco - tamMetadados) / (sizeof(int) + sizeof(long)));
 
     } catch (const std::exception& e) {
         // precisamos garantir que a memória seja liberada antes de o programa parar.
@@ -145,7 +145,7 @@ void BPlusTreeInt::escreverCabecalho() {
     cabecalho hdr;
     hdr.idRaiz = this->idRaiz;
     hdr.tamanhoBloco = this->tamanhoBloco;
-    hdr.numBlocos = gerenciador.getTamanhoArquivo/gerenciador.bl();
+    hdr.numBlocos = gerenciador.getTamanhoArquivo()/this->tamanhoBloco;
 
     // 2. Aloca um buffer na heap.
     char* buffer = new char[tamanhoBloco];
@@ -157,19 +157,19 @@ void BPlusTreeInt::escreverCabecalho() {
     memcpy(buffer, &hdr, sizeof(cabecalho));
 
     // 5. Escreve o buffer no bloco 0.
-    gerenciador.writeBlock(0, buffer);
+    gerenciador.escreveBloco(0, buffer);
 
     // 6. Libera a memória alocada.
     delete[] buffer;
 }
 
 // Lê o cabecalho da árvore B+ do bloco 0 do arquivo de índice.
-void BPlusTreeInt::readcabecalho() {
+void BPlusTreeInt::lerCabecalho() {
     // 1. Aloca um buffer na heap para receber os dados.
     char* buffer = new char[tamanhoBloco];
 
     // 2. Lê o bloco 0 do disco para o buffer.
-    gerenciador.readBlock(0, buffer);
+    gerenciador.lerBloco(0, buffer);
 
     // 3. Cria uma struct para receber a cópia.
     cabecalho hdr;
@@ -378,15 +378,15 @@ void BPlusTreeInt::insert(int key, long dataPointer)
     // e coloco a chave.
     if (idRaiz == -1) {
         No* rootNo = new No(true); // Cria a raiz, que também é uma folha.
-        rootNo->selfId = gerenciador.allocateBlock(); 
+        rootNo->selfId = gerenciador.retornaNovoId(); 
         this->idRaiz = rootNo->selfId; 
 
         rootNo->vetorChaves.push_back(key);
         rootNo->vetorApontadores.push_back(dataPointer);
         rootNo->numChaves = 1;
 
-        writeNoToDisk(rootNo); 
-        writecabecalho(); 
+        escreverNo(rootNo); 
+        escreverCabecalho(); 
         delete rootNo; 
         return;
     }
@@ -413,7 +413,7 @@ void BPlusTreeInt::insert(int key, long dataPointer)
         if (rootIsFull) {
             // A. Cria uma NOVA raiz (na memória)
             No* newRootNo = new No(false); // Nova raiz NUNCA é folha (porque vai ter filhos)
-            newRootNo->selfId = gerenciador.allocateBlock(); 
+            newRootNo->selfId = gerenciador.retornaNovoId(); 
 
             // B. O primeiro filho da nova raiz é a RAIZ ANTIGA (a posição dela)
             newRootNo->vetorApontadores.push_back(this->idRaiz); 
@@ -421,7 +421,7 @@ void BPlusTreeInt::insert(int key, long dataPointer)
 
             // C. ATUALIZA a raiz da árvore (na classe e no cabecalho)
             this->idRaiz = newRootNo->selfId;
-            writecabecalho();
+            escreverCabecalho();
 
             // D. Chama splitChild. 
             // Pai = newRootNo (em memória), Índice do filho lotado = 0

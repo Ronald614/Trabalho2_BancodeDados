@@ -71,7 +71,7 @@ void GerenciaBlocos::escreveBloco(long idBloco, const char* buffer) {
 }
 
 
-// Retorna o número total de blocos atualmente alocados no arquivo.
+//Define um id com base no final do arquivo
 long GerenciaBlocos::retornaNovoId() {
 
     //Garantir que o arquivo esta atualizado

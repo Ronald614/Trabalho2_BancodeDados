@@ -10,6 +10,7 @@ private:
     std::string nomeArquivo;      // Caminho do arquivo.
     std::fstream fileStream;   // O stream do arquivo para operações de I/O.
     const size_t tamanhoBloco;    // Tamanho de cada bloco em bytes.
+    
 
 public:
     //Construtor que abre (ou cria) o arquivo de banco de dados.
