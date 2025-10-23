@@ -4,7 +4,7 @@
 #include <vector>    // Para std::vector (nossas listas dinâmicas)
 #include <cstring>   // Para memcpy
 #include <math.h>    // Para floor (na definição de 'm')
-#include "BlockManager.hpp"// Gerenciamento de blocos em disco
+#include "GerenciaBlocos.hpp"// Gerenciamento de blocos em disco
 #include "Arvorebmais.hpp"  // Declaração da classe BPlusTreeInt
 
 /*
@@ -14,46 +14,46 @@
  */
 
 // Constructor
-BPlusTreeInt::BPlusTreeInt(const std::string& filename, const size_t blockSize_arg)
-    : blockSize(static_cast<int>(blockSize_arg)),
-      fileName(filename),
-      blockManager(filename, blockSize_arg),
-      positionRoot(-1)
+BPlusTreeInt::BPlusTreeInt(const std::string& nomeArquivo, const size_t tamanhoBloco_arg)
+    : tamanhoBloco(static_cast<int>(tamanhoBloco_arg)),
+      nomeArquivo(nomeArquivo),
+      gerenciador(nomeArquivo, tamanhoBloco_arg),
+      idRaiz(-1)
 {
-    char* buffer = new char[this->blockSize];
-    try { // tentar ler o header do arquivo de índice
+    char* buffer = new char[this->tamanhoBloco];
+    try { // tentar ler o cabecalho do arquivo de índice
         // a arvore existe
-        if (blockManager.getBlockCount() > 0) {
+        if (gerenciador.getTamanhoArquivo() > 0){
 
-            blockManager.readBlock(0, buffer);
-            header hdr;
-            memcpy(&hdr, buffer, sizeof(header));
+            gerenciador.lerBloco(0, buffer);
+            cabecalho hdr;
+            memcpy(&hdr, buffer, sizeof(cabecalho));
     
             // Verifica se o tamanho do bloco no arquivo bate com o fornecido
-            if (hdr.blockSize != this->blockSize) {
+            if (hdr.tamanhoBloco != this->tamanhoBloco) {
                 delete[] buffer; 
                 throw std::runtime_error("Erro: O tamanho do bloco fornecido é inconsistente com o do arquivo!");
             }
-            this->positionRoot = hdr.positionRoot;
+            this->idRaiz = hdr.idRaiz;
 
         } else {
-            //Caso o arquivo nao exista, criar o header
-            header novoHeader;
-            novoHeader.positionRoot = -1;
-            novoHeader.blockSize = this->blockSize;
-            novoHeader.numBlocos = 1;
+            //Caso o arquivo nao exista, criar o cabecalho
+            cabecalho novocabecalho;
+            novocabecalho.idRaiz = -1;
+            novocabecalho.tamanhoBloco = this->tamanhoBloco;
+            novocabecalho.numBlocos = 1;
 
             // Zera o buffer antes de usar (boa prática)
-            memset(buffer, 0, this->blockSize);
-            // Copia o novo header para o buffer
-            memcpy(buffer, &novoHeader, sizeof(header));
-            // Escreve o header no arquivo.
-            blockManager.writeBlock(0, buffer);
+            memset(buffer, 0, this->tamanhoBloco);
+            // Copia o novo cabecalho para o buffer
+            memcpy(buffer, &novocabecalho, sizeof(cabecalho));
+            // Escreve o cabecalho no arquivo.
+            gerenciador.escreveBloco(0, buffer);
         }
 
         // Calcula 'm' depois de tudo estar definido.
         int overhead = sizeof(bool) + sizeof(int) + sizeof(long);
-        m = floor((this->blockSize - overhead) / (sizeof(int) + sizeof(long)));
+        m = floor((this->tamanhoBloco - overhead) / (sizeof(int) + sizeof(long)));
 
     } catch (const std::exception& e) {
         // precisamos garantir que a memória seja liberada antes de o programa parar.
@@ -64,152 +64,152 @@ BPlusTreeInt::BPlusTreeInt(const std::string& filename, const size_t blockSize_a
     delete[] buffer;
 }
 
-// Converte um objeto Node para um buffer de bytes (CORRIGIDO)
-void BPlusTreeInt::serializeNode(const BPlusTreeInt::Node& node, char* buffer) {
+// Converte um objeto No para um buffer de bytes (CORRIGIDO)
+void BPlusTreeInt::serializaNo(const BPlusTreeInt::No& No, char* buffer) {
     char* ptr = buffer; 
 
     // 1. Copia os campos de tamanho fixo (Isto estava correto)
-    memcpy(ptr, &node.isLeaf, sizeof(bool));
+    memcpy(ptr, &No.ehFolha, sizeof(bool));
     ptr += sizeof(bool);
-    memcpy(ptr, &node.numKeys, sizeof(int));
+    memcpy(ptr, &No.numChaves, sizeof(int));
     ptr += sizeof(int);
-    memcpy(ptr, &node.next, sizeof(long));
+    memcpy(ptr, &No.proximo, sizeof(long));
     ptr += sizeof(long);
 
     // 2. Copia o conteúdo do vector de chaves (Isto estava correto)
-    memcpy(ptr, node.keys.data(), node.numKeys * sizeof(int));
-    ptr += node.numKeys * sizeof(int);
+    memcpy(ptr, No.vetorChaves.data(), No.numChaves * sizeof(int));
+    ptr += No.numChaves * sizeof(int);
 
     // 3. Copia os ponteiros (de dados OU de filhos)
-    if (node.isLeaf) {
-        // Se é folha, salva 'numKeys' ponteiros de DADOS
-        memcpy(ptr, node.childrenOrPointers.data(), node.numKeys * sizeof(long));
-        // (Opcional) Mover o ptr: ptr += node.numKeys * sizeof(long);
+    if (No.ehFolha) {
+        // Se é folha, salva 'numChaves' ponteiros de DADOS
+        memcpy(ptr, No.vetorApontadores.data(), No.numChaves * sizeof(long));
+        // (Opcional) Mover o ptr: ptr += No.numChaves * sizeof(long);
     } else {
-        // Se é interno, salva 'numKeys + 1' ponteiros de FILHOS
-        memcpy(ptr, node.childrenOrPointers.data(), (node.numKeys + 1) * sizeof(long));
-        // (Opcional) Mover o ptr: ptr += (node.numKeys + 1) * sizeof(long);
+        // Se é interno, salva 'numChaves + 1' ponteiros de FILHOS
+        memcpy(ptr, No.vetorApontadores.data(), (No.numChaves + 1) * sizeof(long));
+        // (Opcional) Mover o ptr: ptr += (No.numChaves + 1) * sizeof(long);
     }
 }
 
-// Converte um buffer de bytes de volta para um objeto Node (CORRIGIDO)
-void BPlusTreeInt::deserializeNode(const char* buffer, BPlusTreeInt::Node& node) {
+// Converte um buffer de bytes de volta para um objeto No (CORRIGIDO)
+void BPlusTreeInt::deserializaNo(const char* buffer, BPlusTreeInt::No& No) {
     const char* ptr = buffer; 
 
     // 1. Lê os campos de tamanho fixo (Isto estava correto)
-    memcpy(&node.isLeaf, ptr, sizeof(bool));
+    memcpy(&No.ehFolha, ptr, sizeof(bool));
     ptr += sizeof(bool);
-    memcpy(&node.numKeys, ptr, sizeof(int));
+    memcpy(&No.numChaves, ptr, sizeof(int));
     ptr += sizeof(int);
-    memcpy(&node.next, ptr, sizeof(long));
+    memcpy(&No.proximo, ptr, sizeof(long));
     ptr += sizeof(long);
     
     // 2. Lê as chaves (Isto estava correto)
-    node.keys.resize(node.numKeys); 
-    memcpy(node.keys.data(), ptr, node.numKeys * sizeof(int));
-    ptr += node.numKeys * sizeof(int);
+    No.vetorChaves.resize(No.numChaves); 
+    memcpy(No.vetorChaves.data(), ptr, No.numChaves * sizeof(int));
+    ptr += No.numChaves * sizeof(int);
 
     // 3. Lê os ponteiros (de dados OU de filhos)
-    if (node.isLeaf) {
-        // Se é folha, lê 'numKeys' ponteiros de DADOS
-        node.childrenOrPointers.resize(node.numKeys); 
-        memcpy(node.childrenOrPointers.data(), ptr, node.numKeys * sizeof(long));
+    if (No.ehFolha) {
+        // Se é folha, lê 'numChaves' ponteiros de DADOS
+        No.vetorApontadores.resize(No.numChaves); 
+        memcpy(No.vetorApontadores.data(), ptr, No.numChaves * sizeof(long));
     } else {
-        // Se é interno, lê 'numKeys + 1' ponteiros de FILHOS
-        node.childrenOrPointers.resize(node.numKeys + 1); 
-        memcpy(node.childrenOrPointers.data(), ptr, (node.numKeys + 1) * sizeof(long));
+        // Se é interno, lê 'numChaves + 1' ponteiros de FILHOS
+        No.vetorApontadores.resize(No.numChaves + 1); 
+        memcpy(No.vetorApontadores.data(), ptr, (No.numChaves + 1) * sizeof(long));
     }
 }
 
 // Escreve um nó no disco
-void BPlusTreeInt::writeNodeToDisk(BPlusTreeInt::Node* node) {
-    char* buffer = new char[blockSize];
-    serializeNode(*node, buffer);
-    blockManager.writeBlock(node->selfPosition, buffer);
+void BPlusTreeInt::escreverNo(BPlusTreeInt::No* No) {
+    char* buffer = new char[tamanhoBloco];
+    serializaNo(*No, buffer);
+    gerenciador.escreveBloco(No->selfId, buffer);
     delete[] buffer;
 }
 
 // Lê um nó do disco e o desserializa
-BPlusTreeInt::Node* BPlusTreeInt::readNodeFromDisk(long blockNum, BPlusTreeInt::Node* node) {
-    char* buffer = new char[blockSize];
-    blockManager.readBlock(blockNum, buffer);
-    deserializeNode(buffer, *node);
-    node->selfPosition = blockNum;
+BPlusTreeInt::No* BPlusTreeInt::lerNo(long blockNum, BPlusTreeInt::No* No) {
+    char* buffer = new char[tamanhoBloco];
+    gerenciador.lerBloco(blockNum, buffer);
+    deserializaNo(buffer, *No);
+    No->selfId = blockNum;
     delete[] buffer;
-    return node;
+    return No;
 }
 
-//  Escreve o header da árvore B+ no bloco 0 do arquivo de índice.
-void BPlusTreeInt::writeHeader() {
+//  Escreve o cabecalho da árvore B+ no bloco 0 do arquivo de índice.
+void BPlusTreeInt::escreverCabecalho() {
     // 1. Cria e preenche a struct com os dados atuais.
-    header hdr;
-    hdr.positionRoot = this->positionRoot;
-    hdr.blockSize = this->blockSize;
-    hdr.numBlocos = blockManager.getBlockCount();
+    cabecalho hdr;
+    hdr.idRaiz = this->idRaiz;
+    hdr.tamanhoBloco = this->tamanhoBloco;
+    hdr.numBlocos = gerenciador.getTamanhoArquivo/gerenciador.bl();
 
     // 2. Aloca um buffer na heap.
-    char* buffer = new char[blockSize];
+    char* buffer = new char[tamanhoBloco];
     
     // 3. (Opcional, mas recomendado) Zera o buffer para evitar escrever lixo.
-    memset(buffer, 0, blockSize);
+    memset(buffer, 0, tamanhoBloco);
 
     // 4. Copia os bytes da struct para o início do buffer.
-    memcpy(buffer, &hdr, sizeof(header));
+    memcpy(buffer, &hdr, sizeof(cabecalho));
 
     // 5. Escreve o buffer no bloco 0.
-    blockManager.writeBlock(0, buffer);
+    gerenciador.writeBlock(0, buffer);
 
     // 6. Libera a memória alocada.
     delete[] buffer;
 }
 
-// Lê o header da árvore B+ do bloco 0 do arquivo de índice.
-void BPlusTreeInt::readHeader() {
+// Lê o cabecalho da árvore B+ do bloco 0 do arquivo de índice.
+void BPlusTreeInt::readcabecalho() {
     // 1. Aloca um buffer na heap para receber os dados.
-    char* buffer = new char[blockSize];
+    char* buffer = new char[tamanhoBloco];
 
     // 2. Lê o bloco 0 do disco para o buffer.
-    blockManager.readBlock(0, buffer);
+    gerenciador.readBlock(0, buffer);
 
     // 3. Cria uma struct para receber a cópia.
-    header hdr;
+    cabecalho hdr;
     
     // 4. Copia os bytes do buffer para a struct.
-    memcpy(&hdr, buffer, sizeof(header));
+    memcpy(&hdr, buffer, sizeof(cabecalho));
     
     // 5. Libera a memória, pois os dados já estão seguros em 'hdr'.
     delete[] buffer;
 
     // 6. Atualiza os atributos da classe.
-    this->positionRoot = hdr.positionRoot;
-    this->blockSize = hdr.blockSize;
+    this->idRaiz = hdr.idRaiz;
+    this->tamanhoBloco = hdr.tamanhoBloco;
 }
 
 /**
  * @brief (splitChild) REESCRITO PARA DISCO
  *
  * @param parent O nó pai (JÁ EM MEMÓRIA) que será modificado.
- * @param childIndex O índice (em parent->childrenOrPointers) do filho que está lotado.
+ * @param childIndex O índice (em parent->vetorApontadores) do filho que está lotado.
 **/ 
-void BPlusTreeInt::splitChild(Node* parent, int childIndex){
+void BPlusTreeInt::splitChild(No* parent, int childIndex){
     
     // 1. Cria o novo "irmão" (newSibling) e aloca um bloco para ele no disco
-    Node* newSibling = new Node();
-    newSibling->selfPosition = blockManager.allocateBlock();
+    No* newSibling = new No();
+    newSibling->selfId = gerenciador.allocateBlock();
 
     // 2. Carrega o filho lotado ('child') do disco
-    long childOffset = parent->childrenOrPointers[childIndex];
-    Node* child = new Node();
-    readNodeFromDisk(childOffset, child);
+    long childOffset = parent->vetorApontadores[childIndex];
+    No* child = new No();
+    lerNo(childOffset, child);
     
     // 3. Define o status do novo irmão (folha ou não)
-    newSibling->isLeaf = child->isLeaf;
+    newSibling->ehFolha = child->ehFolha;
 
     // 4. Calcula o "ponto do meio" para o split
     int middleIndex;
     int keyToPromote; // A chave que vai subir para o 'parent'
 
-    if (child->isLeaf) {
+    if (child->ehFolha) {
         // --- Split de NÓ FOLHA ---
         // 'm' é o n° max de pares. Um nó folha lotado tem 'm' chaves.
         // Ponto do meio: m / 2.
@@ -217,24 +217,24 @@ void BPlusTreeInt::splitChild(Node* parent, int childIndex){
         
         // A chave no 'middleIndex' é a primeira a ir para o novo irmão.
         // Em uma B+ Tree, a chave promovida de uma folha é COPIADA, não movida.
-        keyToPromote = child->keys[middleIndex]; 
+        keyToPromote = child->vetorChaves[middleIndex]; 
 
         // Copia a "metade direita" (chaves) para o novo irmão
-        newSibling->keys.assign(child->keys.begin() + middleIndex, child->keys.end());
+        newSibling->vetorChaves.assign(child->vetorChaves.begin() + middleIndex, child->vetorChaves.end());
         // Copia a "metade direita" (ponteiros de DADOS)
-        newSibling->childrenOrPointers.assign(child->childrenOrPointers.begin() + middleIndex, child->childrenOrPointers.end());
+        newSibling->vetorApontadores.assign(child->vetorApontadores.begin() + middleIndex, child->vetorApontadores.end());
 
         // Atualiza os contadores de chaves
-        newSibling->numKeys = m - middleIndex;
-        child->numKeys = middleIndex;
+        newSibling->numChaves = m - middleIndex;
+        child->numChaves = middleIndex;
         
         // Atualiza os vetores do filho antigo (trunca)
-        child->keys.resize(middleIndex);
-        child->childrenOrPointers.resize(middleIndex);
+        child->vetorChaves.resize(middleIndex);
+        child->vetorApontadores.resize(middleIndex);
 
         // Atualiza a lista ligada de folhas
-        newSibling->next = child->next;
-        child->next = newSibling->selfPosition;
+        newSibling->proximo = child->proximo;
+        child->proximo = newSibling->selfId;
 
     } else {
         // --- Split de NÓ INTERNO ---
@@ -243,34 +243,34 @@ void BPlusTreeInt::splitChild(Node* parent, int childIndex){
         middleIndex = (m - 1) / 2;
 
         // A chave do meio é MOVIDA para o pai.
-        keyToPromote = child->keys[middleIndex];
+        keyToPromote = child->vetorChaves[middleIndex];
 
         // Copia a "metade direita" (chaves) para o novo irmão
         // (sem incluir a chave promovida)
-        newSibling->keys.assign(child->keys.begin() + middleIndex + 1, child->keys.end());
+        newSibling->vetorChaves.assign(child->vetorChaves.begin() + middleIndex + 1, child->vetorChaves.end());
         // Copia a "metade direita" (ponteiros de FILHOS)
-        newSibling->childrenOrPointers.assign(child->childrenOrPointers.begin() + middleIndex + 1, child->childrenOrPointers.end());
+        newSibling->vetorApontadores.assign(child->vetorApontadores.begin() + middleIndex + 1, child->vetorApontadores.end());
         
         // Atualiza os contadores de chaves
-        newSibling->numKeys = (m - 1) - (middleIndex + 1);
-        child->numKeys = middleIndex;
+        newSibling->numChaves = (m - 1) - (middleIndex + 1);
+        child->numChaves = middleIndex;
 
         // Atualiza os vetores do filho antigo (trunca)
-        child->keys.resize(middleIndex);
-        child->childrenOrPointers.resize(middleIndex + 1); // Nós internos têm numKeys+1 filhos
+        child->vetorChaves.resize(middleIndex);
+        child->vetorApontadores.resize(middleIndex + 1); // Nós internos têm numChaves+1 filhos
     }
 
     // 5. ATUALIZA O NÓ PAI (que já estava em memória)
     // Insere a chave promovida
-    parent->keys.insert(parent->keys.begin() + childIndex, keyToPromote);
+    parent->vetorChaves.insert(parent->vetorChaves.begin() + childIndex, keyToPromote);
     // Insere o ponteiro para o novo irmão
-    parent->childrenOrPointers.insert(parent->childrenOrPointers.begin() + childIndex + 1, newSibling->selfPosition);
-    parent->numKeys++;
+    parent->vetorApontadores.insert(parent->vetorApontadores.begin() + childIndex + 1, newSibling->selfId);
+    parent->numChaves++;
 
     // 6. ESCREVE OS 3 NÓS MODIFICADOS DE VOLTA NO DISCO
-    writeNodeToDisk(parent);
-    writeNodeToDisk(child);
-    writeNodeToDisk(newSibling);
+    writeNoToDisk(parent);
+    writeNoToDisk(child);
+    writeNoToDisk(newSibling);
 
     // 7. Limpa a memória
     delete child;
@@ -281,30 +281,30 @@ void BPlusTreeInt::splitChild(Node* parent, int childIndex){
  * @brief Insere (key, dataPointer) em um nó que *não* está cheio.
  * REESCRITO PARA DISCO
  *
- * @param node O nó atual (JÁ EM MEMÓRIA) que estamos inspecionando.
+ * @param No O nó atual (JÁ EM MEMÓRIA) que estamos inspecionando.
  * @param key A chave que queremos inserir.
  * @param dataPointer O ponteiro de dado associado.
 **/
-void BPlusTreeInt::insertNonFull(Node* node, int key, long dataPointer)
+void BPlusTreeInt::insertNonFull(No* No, int key, long dataPointer)
 {
     // ==========================================================
     // CASO BASE (Recursão para aqui)
     // ==========================================================
-    if (node->isLeaf) {
+    if (No->ehFolha) {
         // Nó é folha. Encontra a posição correta e insere.
         
         // std::lower_bound: Encontra o primeiro elemento que é >= key.
-        auto it = std::lower_bound(node->keys.begin(), node->keys.end(), key);
-        int i = std::distance(node->keys.begin(), it);
+        auto it = std::lower_bound(No->vetorChaves.begin(), No->vetorChaves.end(), key);
+        int i = std::distance(No->vetorChaves.begin(), it);
 
         // Insere a chave
-        node->keys.insert(node->keys.begin() + i, key);
+        No->vetorChaves.insert(No->vetorChaves.begin() + i, key);
         // Insere o ponteiro de DADO
-        node->childrenOrPointers.insert(node->childrenOrPointers.begin() + i, dataPointer);
-        node->numKeys++;
+        No->vetorApontadores.insert(No->vetorApontadores.begin() + i, dataPointer);
+        No->numChaves++;
         
         // Escreve o nó modificado de volta no disco
-        writeNodeToDisk(node);
+        writeNoToDisk(No);
     }
     // ==========================================================
     // CASO RECURSIVO (Nó interno)
@@ -314,8 +314,8 @@ void BPlusTreeInt::insertNonFull(Node* node, int key, long dataPointer)
         
         // Procura o índice do filho correto,
         // Encontra a primeira chave > key
-        auto it = std::upper_bound(node->keys.begin(), node->keys.end(), key);
-        int i = std::distance(node->keys.begin(), it);
+        auto it = std::upper_bound(No->vetorChaves.begin(), No->vetorChaves.end(), key);
+        int i = std::distance(No->vetorChaves.begin(), it);
         
         // 'i' é o índice do ponteiro do filho para onde devemos descer.
 
@@ -324,47 +324,47 @@ void BPlusTreeInt::insertNonFull(Node* node, int key, long dataPointer)
         // ==========================================================
 
         // 1. Carrega o filho 'i' do disco para checar se está lotado
-        long childOffset = node->childrenOrPointers[i];
-        Node* childNode = new Node();
-        readNodeFromDisk(childOffset, childNode);
+        long childOffset = No->vetorApontadores[i];
+        No* childNo = new No();
+        lerNo(childOffset, childNo);
 
         // 2. Define a capacidade máxima do filho
         bool childIsFull = false;
-        if (childNode->isLeaf) {
-            if (childNode->numKeys == m) { // Folha lota com 'm'
+        if (childNo->ehFolha) {
+            if (childNo->numChaves == m) { // Folha lota com 'm'
                 childIsFull = true;
             }
         } else {
-            if (childNode->numKeys == m - 1) { // Interno lota com 'm-1'
+            if (childNo->numChaves == m - 1) { // Interno lota com 'm-1'
                 childIsFull = true;
             }
         }
 
         // 3. Se o filho estiver lotado, divide ele AGORA.
         if (childIsFull) {
-            // 'node' é o pai (em memória), 'i' é o índice do filho
-            splitChild(node, i); 
+            // 'No' é o pai (em memória), 'i' é o índice do filho
+            splitChild(No, i); 
             
-            // O split ALTEROU o 'node' (pai).
+            // O split ALTEROU o 'No' (pai).
             // Precisamos checar se a 'key' agora pertence
             // ao novo irmão (que está em 'i+1').
-            if (key > node->keys[i]) {
+            if (key > No->vetorChaves[i]) {
                 i++;
             }
         
-            // O 'childNode' que tínhamos carregado está obsoleto/foi deletado
+            // O 'childNo' que tínhamos carregado está obsoleto/foi deletado
             // pelo splitChild. Recarregamos o nó filho correto (agora com espaço).
-            childOffset = node->childrenOrPointers[i];
-            readNodeFromDisk(childOffset, childNode);
+            childOffset = No->vetorApontadores[i];
+            lerNo(childOffset, childNo);
             
         } 
         
-        // 4. Agora temos CERTEZA que o 'childNode' (filho[i]) tem espaço.
+        // 4. Agora temos CERTEZA que o 'childNo' (filho[i]) tem espaço.
         // Chamamos a recursão para descer um nível.
-        insertNonFull(childNode, key, dataPointer);
+        insertNonFull(childNo, key, dataPointer);
         
         // 5. Limpa a memória
-        delete childNode;
+        delete childNo;
     }
 }
 
@@ -376,34 +376,34 @@ void BPlusTreeInt::insert(int key, long dataPointer)
 {
     // CASO 1: Árvore vazia. Eu só crio a 'root' como folha
     // e coloco a chave.
-    if (positionRoot == -1) {
-        Node* rootNode = new Node(true); // Cria a raiz, que também é uma folha.
-        rootNode->selfPosition = blockManager.allocateBlock(); 
-        this->positionRoot = rootNode->selfPosition; 
+    if (idRaiz == -1) {
+        No* rootNo = new No(true); // Cria a raiz, que também é uma folha.
+        rootNo->selfId = gerenciador.allocateBlock(); 
+        this->idRaiz = rootNo->selfId; 
 
-        rootNode->keys.push_back(key);
-        rootNode->childrenOrPointers.push_back(dataPointer);
-        rootNode->numKeys = 1;
+        rootNo->vetorChaves.push_back(key);
+        rootNo->vetorApontadores.push_back(dataPointer);
+        rootNo->numChaves = 1;
 
-        writeNodeToDisk(rootNode); 
-        writeHeader(); 
-        delete rootNode; 
+        writeNoToDisk(rootNo); 
+        writecabecalho(); 
+        delete rootNo; 
         return;
     }
     // CASO 2: Árvore já existe.
     else {
         // 1. Carrega o nó raiz ATUAL do disco para a memória.
-        Node* rootNode = new Node();
-        readNodeFromDisk(this->positionRoot, rootNode);
+        No* rootNo = new No();
+        lerNo(this->idRaiz, rootNo);
 
         // 2. Verifica se a raiz está lotada
         bool rootIsFull = false;
-        if (rootNode->isLeaf) {
-            if (rootNode->numKeys == m) { // Folha lota com 'm'
+        if (rootNo->ehFolha) {
+            if (rootNo->numChaves == m) { // Folha lota com 'm'
                 rootIsFull = true;
             }
         } else {
-            if (rootNode->numKeys == m - 1) { // Interno lota com 'm-1'
+            if (rootNo->numChaves == m - 1) { // Interno lota com 'm-1'
                 rootIsFull = true;
             }
         }
@@ -412,36 +412,36 @@ void BPlusTreeInt::insert(int key, long dataPointer)
         // A raiz não tem pai, então eu não posso só chamar 'splitChild'.
         if (rootIsFull) {
             // A. Cria uma NOVA raiz (na memória)
-            Node* newRootNode = new Node(false); // Nova raiz NUNCA é folha (porque vai ter filhos)
-            newRootNode->selfPosition = blockManager.allocateBlock(); 
+            No* newRootNo = new No(false); // Nova raiz NUNCA é folha (porque vai ter filhos)
+            newRootNo->selfId = gerenciador.allocateBlock(); 
 
             // B. O primeiro filho da nova raiz é a RAIZ ANTIGA (a posição dela)
-            newRootNode->childrenOrPointers.push_back(this->positionRoot); 
-            // (numKeys da newRootNode ainda é 0)
+            newRootNo->vetorApontadores.push_back(this->idRaiz); 
+            // (numChaves da newRootNo ainda é 0)
 
-            // C. ATUALIZA a raiz da árvore (na classe e no header)
-            this->positionRoot = newRootNode->selfPosition;
-            writeHeader();
+            // C. ATUALIZA a raiz da árvore (na classe e no cabecalho)
+            this->idRaiz = newRootNo->selfId;
+            writecabecalho();
 
             // D. Chama splitChild. 
-            // Pai = newRootNode (em memória), Índice do filho lotado = 0
-            splitChild(newRootNode, 0); 
+            // Pai = newRootNo (em memória), Índice do filho lotado = 0
+            splitChild(newRootNo, 0); 
             
-            // E. Agora, o newRootNode tem 1 chave.
+            // E. Agora, o newRootNo tem 1 chave.
             // Precisamos decidir para qual filho descer
-            insertNonFull(newRootNode, key, dataPointer);
+            insertNonFull(newRootNo, key, dataPointer);
 
             // F. Limpa a memória
-            delete newRootNode;
+            delete newRootNo;
         } 
         // 4. Sub-caso: A raiz NÃO está lotada.
         else {
             // A raiz tem espaço. Só chama a inserção nela.
-            insertNonFull(rootNode, key, dataPointer);
+            insertNonFull(rootNo, key, dataPointer);
         }
         
-        // Limpa o rootNode que carregamos no início
-        delete rootNode; 
+        // Limpa o rootNo que carregamos no início
+        delete rootNo; 
     }
 }
 
@@ -450,33 +450,33 @@ void BPlusTreeInt::insert(int key, long dataPointer)
  *
  * Lógica: É só um 'while' que desce a árvore. Em cada nó,
  * ela acha o caminho certo ('i') pra descer.
- * Se em algum momento 'key == current->keys[i]', achou (true).
- * Se chegar na folha ('isLeaf') e não achar, não existe (false).
+ * Se em algum momento 'key == current->vetorChaves[i]', achou (true).
+ * Se chegar na folha ('ehFolha') e não achar, não existe (false).
  */
 long BPlusTreeInt::search(int key){
 
-    if (positionRoot == -1) {
+    if (idRaiz == -1) {
         return -1; // Árvore vazia
     }
 
-    Node* current = new Node();
-    readNodeFromDisk(positionRoot, current);
+    No* current = new No();
+    lerNo(idRaiz, current);
 
     while (true) {
         
-        // Encontra o primeiro índice 'i' onde key <= current->keys[i]
+        // Encontra o primeiro índice 'i' onde key <= current->vetorChaves[i]
         int i = 0;
-        while (i < current->numKeys && key > current->keys[i]) {
+        while (i < current->numChaves && key > current->vetorChaves[i]) {
             i++;
         }
         // Agora, 'i' é o índice do primeiro elemento >= key
 
-        if (current->isLeaf) {
+        if (current->ehFolha) {
             // --- Está na folha ---
             // Verifica se a chave no índice 'i' é a que procuramos
-            if (i < current->numKeys && current->keys[i] == key) {
+            if (i < current->numChaves && current->vetorChaves[i] == key) {
                 // Achou! Retorna o ponteiro de dado.
-                long dataPtr = current->childrenOrPointers[i];
+                long dataPtr = current->vetorApontadores[i];
                 delete current;
                 return dataPtr;
             } else {
@@ -489,15 +489,15 @@ long BPlusTreeInt::search(int key){
             
             // Se a chave for EXATAMENTE igual a uma chave interna, na B+ Tree
             // o valor está na sub-árvore da DIREITA daquela chave.
-            if (i < current->numKeys && current->keys[i] == key) {
+            if (i < current->numChaves && current->vetorChaves[i] == key) {
                  i++;
             }
             
             // 'i' é o índice do filho para onde descer.
-            long childPosition = current->childrenOrPointers[i];
+            long childPosition = current->vetorApontadores[i];
             
             // Reutiliza o ponteiro 'current' para carregar o filho.
-            readNodeFromDisk(childPosition, current); 
+            lerNo(childPosition, current); 
         }
     }
 }
@@ -509,23 +509,23 @@ void BPlusTreeInt::printintree() {
     std::cout << "--- BPlusTreeInt::printintree() ---" << std::endl;
     
     // Se a raiz ainda não existe (árvore vazia)
-    if (positionRoot == -1) {
+    if (idRaiz == -1) {
         std::cout << "(Arvore Vazia)" << std::endl;
         return;
     }
 
     // Tenta carregar o nó raiz
-    Node* rootNode = new Node();
-    readNodeFromDisk(positionRoot, rootNode); // Assumindo que readNodeFromDisk funciona
+    No* rootNo = new No();
+    lerNo(idRaiz, rootNo); // Assumindo que lerNo funciona
 
-    if (rootNode == nullptr) {
+    if (rootNo == nullptr) {
         std::cout << "Erro ao ler o no raiz." << std::endl;
     } else {
         // Agora chama a sua função auxiliar recursiva (que você já deve ter)
         // Se você também não implementou a auxiliar, crie um stub para ela também.
-        printintree(rootNode, 0); 
+        printintree(rootNo, 0); 
     }
 
-    delete rootNode;
+    delete rootNo;
     std::cout << "---------------------------------" << std::endl;
 }
