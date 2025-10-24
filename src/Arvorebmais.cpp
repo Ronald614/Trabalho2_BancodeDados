@@ -21,7 +21,6 @@ BPlusTreeInt::BPlusTreeInt(const std::string &nomeArquivo, const size_t tamanhoB
       idRaiz(-1),
       totalBlocos(0)
 {
-    char *buffer = new char[this->tamanhoBloco];
     try
     {
         // se a arvore existe o arquivo tem algo
@@ -38,19 +37,11 @@ BPlusTreeInt::BPlusTreeInt(const std::string &nomeArquivo, const size_t tamanhoB
         else
         {
             // Caso o arquivo nao exista, criar o cabecalho
-            cabecalho novocabecalho;
-            novocabecalho.idRaiz = -1;
-            novocabecalho.tamanhoBloco = this->tamanhoBloco;
-            novocabecalho.numBlocos = 1;
-            novocabecalho.numBlocos = 1; // total de blocos para o cabecalho
-            this->totalBlocos = 1;       // total de bloco para a classe
+            this->idRaiz = -1;
+            this->totalBlocos = 1;       // total de blocos para o cabecalho / total de bloco para a classe
 
-            // Zera o buffer antes de usar (boa prática)
-            memset(buffer, 0, this->tamanhoBloco);
-            // Copia o novo cabecalho para o buffer
-            memcpy(buffer, &novocabecalho, sizeof(cabecalho));
             // Escreve o cabecalho no arquivo.
-            gerenciador.escreveBloco(0, buffer);
+            escreverCabecalho();
         }
 
         // Calcula 'm' depois de tudo estar definido.
@@ -62,11 +53,9 @@ BPlusTreeInt::BPlusTreeInt(const std::string &nomeArquivo, const size_t tamanhoB
     }
     catch (const std::exception &e)
     {
-        delete[] buffer;
         // Re-lança a exceção para que o programa que chamou o construtor saiba que algo deu errado.
         throw;
     }
-    delete[] buffer;
 }
 
 // Converte um objeto No para um buffer de bytes (CORRIGIDO)
