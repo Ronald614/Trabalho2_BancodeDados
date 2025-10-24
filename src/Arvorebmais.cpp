@@ -329,7 +329,7 @@ void BPlusTreeInt::insertNonFull(No* No, int key, long dataPointer)
         lerNo(childOffset, childNo);
 
         // 2. Define a capacidade máxima do filho
-        bool childIsFull = false;
+        bool childIsFull = false;   
         if (childNo->ehFolha) {
             if (childNo->numChaves == m) { // Folha lota com 'm'
                 childIsFull = true;
@@ -500,32 +500,4 @@ long BPlusTreeInt::search(int key){
             lerNo(childPosition, current); 
         }
     }
-}
-
-// --- IMPLEMENTAÇÃO PÚBLICA DE PRINTINTREE ---
-// O testa_arvore.cpp chama esta função.
-void BPlusTreeInt::printintree() {
-    
-    std::cout << "--- BPlusTreeInt::printintree() ---" << std::endl;
-    
-    // Se a raiz ainda não existe (árvore vazia)
-    if (idRaiz == -1) {
-        std::cout << "(Arvore Vazia)" << std::endl;
-        return;
-    }
-
-    // Tenta carregar o nó raiz
-    No* rootNo = new No();
-    lerNo(idRaiz, rootNo); // Assumindo que lerNo funciona
-
-    if (rootNo == nullptr) {
-        std::cout << "Erro ao ler o no raiz." << std::endl;
-    } else {
-        // Agora chama a sua função auxiliar recursiva (que você já deve ter)
-        // Se você também não implementou a auxiliar, crie um stub para ela também.
-        printintree(rootNo, 0); 
-    }
-
-    delete rootNo;
-    std::cout << "---------------------------------" << std::endl;
 }
