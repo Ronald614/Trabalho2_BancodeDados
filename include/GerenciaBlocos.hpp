@@ -22,11 +22,10 @@ public:
     // Lê o conteúdo de um bloco específico do disco para um buffer.
     void lerBloco(long idBloco, char* buffer);
 
-   // Escreve o conteúdo de um buffer em um bloco específico no disco.
+    // Escreve o conteúdo de um buffer em um bloco específico no disco.
     void escreveBloco(long idBloco, const char* buffer);
 
-    long retornaNovoId(); //Define um id com base no final do arquivo
-
+    // Retorna o tamanho do arquivo
     long getTamanhoArquivo();//Somente a posicao final do arquivo
 };
 

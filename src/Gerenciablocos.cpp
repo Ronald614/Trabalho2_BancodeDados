@@ -21,9 +21,9 @@ GerenciaBlocos::GerenciaBlocos(const std::string& nomeArquivo, size_t tamanhoBlo
             throw std::runtime_error("Erro: Nao foi possivel criar o arquivo: " + this->nomeArquivo);
             }
         }
-        
         this->fileStream.close();//fechamos o arquivo no modo somente para escrita
 
+        
         //tenta abrir de novo para escrita e leitura
         this->fileStream.open(this->nomeArquivo, std::ios::in | std::ios::out | std::ios::binary); 
 
@@ -31,7 +31,7 @@ GerenciaBlocos::GerenciaBlocos(const std::string& nomeArquivo, size_t tamanhoBlo
         this->fileStream.open(this->nomeArquivo, std::ios::out | std::ios::binary); 
            if (!fileStream.is_open()) {
             // Se AINDA não abriu, é porque não conseguiu criar.
-            // AGORA sim, você pode lançar o erro.
+            // AGORA sim lançar o erro
                 throw std::runtime_error("Erro: Nao foi possivel criar o arquivo: " + this->nomeArquivo);
             }
         }

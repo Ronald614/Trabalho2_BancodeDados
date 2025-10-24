@@ -38,6 +38,7 @@ private:
     int m;                      // ordem da árvore B+ valor maximo de chaves por nó
     GerenciaBlocos gerenciador; // declarado aqui
     long idRaiz;                // Apontador pra raiz da arvore
+    long totalBlocos;           // Total de blocos ja ocupado no arquivo
 
     // assinaturas privadas
 
@@ -47,7 +48,9 @@ private:
     void serializaNo(const No &no, char *buffer);   // serializar o no
     void deserializaNo(const char *buffer, No &no); // desserializar o no
     void escreverNo(No *no);                        // escrever no disco
+    long getNovoId();                               // retorna novo id com base no total de blocos
     No *lerNo(long idBloco, No *no);                // ler do disco
+
 
     // usado na logica da arvore
     void splitChild(No *parent, int childIndex);           // dividir filho (usado na insercao)
