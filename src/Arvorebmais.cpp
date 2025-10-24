@@ -285,26 +285,26 @@ void BPlusTreeInt::splitChild(No* parent, int childIndex){
  * @param key A chave que queremos inserir.
  * @param dataPointer O ponteiro de dado associado.
 **/
-void BPlusTreeInt::insertNonFull(No* No, int key, long dataPointer)
+void BPlusTreeInt::insertNonFull(No* novo_no, int key, long dataPointer)
 {
     // ==========================================================
     // CASO BASE (Recursão para aqui)
     // ==========================================================
-    if (No->ehFolha) {
+    if (novo_no->ehFolha) {
         // Nó é folha. Encontra a posição correta e insere.
         
         // std::lower_bound: Encontra o primeiro elemento que é >= key.
-        auto it = std::lower_bound(No->vetorChaves.begin(), No->vetorChaves.end(), key);
-        int i = std::distance(No->vetorChaves.begin(), it);
+        auto it = std::lower_bound(novo_no->vetorChaves.begin(), novo_no->vetorChaves.end(), key);
+        int i = std::distance(novo_no->vetorChaves.begin(), it);
 
         // Insere a chave
-        No->vetorChaves.insert(No->vetorChaves.begin() + i, key);
+        novo_no->vetorChaves.insert(novo_no->vetorChaves.begin() + i, key);
         // Insere o ponteiro de DADO
-        No->vetorApontadores.insert(No->vetorApontadores.begin() + i, dataPointer);
-        No->numChaves++;
+        novo_no->vetorApontadores.insert(novo_no->vetorApontadores.begin() + i, dataPointer);
+        novo_no->numChaves++;
         
         // Escreve o nó modificado de volta no disco
-        escreverNo(No);
+        escreverNo(novo_no);
     }
     // ==========================================================
     // CASO RECURSIVO (Nó interno)
@@ -314,8 +314,8 @@ void BPlusTreeInt::insertNonFull(No* No, int key, long dataPointer)
         
         // Procura o índice do filho correto,
         // Encontra a primeira chave > key
-        auto it = std::upper_bound(No->vetorChaves.begin(), No->vetorChaves.end(), key);
-        int i = std::distance(No->vetorChaves.begin(), it);
+        auto it = std::upper_bound(novo_no->vetorChaves.begin(), novo_no->vetorChaves.end(), key);
+        int i = std::distance(novo_no->vetorChaves.begin(), it);
         
         // 'i' é o índice do ponteiro do filho para onde devemos descer.
 
@@ -324,7 +324,7 @@ void BPlusTreeInt::insertNonFull(No* No, int key, long dataPointer)
         // ==========================================================
 
         // 1. Carrega o filho 'i' do disco para checar se está lotado
-        long childOffset = No->vetorApontadores[i];
+        long childOffset = novo_no->vetorApontadores[i];
         No* childNo = new No();
         lerNo(childOffset, childNo);
 
@@ -343,18 +343,18 @@ void BPlusTreeInt::insertNonFull(No* No, int key, long dataPointer)
         // 3. Se o filho estiver lotado, divide ele AGORA.
         if (childIsFull) {
             // 'No' é o pai (em memória), 'i' é o índice do filho
-            splitChild(No, i); 
+            splitChild(novo_no, i); 
             
             // O split ALTEROU o 'No' (pai).
             // Precisamos checar se a 'key' agora pertence
             // ao novo irmão (que está em 'i+1').
-            if (key > No->vetorChaves[i]) {
+            if (key > novo_no->vetorChaves[i]) {
                 i++;
             }
         
             // O 'childNo' que tínhamos carregado está obsoleto/foi deletado
             // pelo splitChild. Recarregamos o nó filho correto (agora com espaço).
-            childOffset = No->vetorApontadores[i];
+            childOffset = novo_no->vetorApontadores[i];
             lerNo(childOffset, childNo);
             
         } 
