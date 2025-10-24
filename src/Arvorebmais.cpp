@@ -115,6 +115,8 @@ void BPlusTreeInt::deserializaNo(const char *buffer, No &No)
     ptr += sizeof(int);
     memcpy(&No.proximo, ptr, sizeof(long));
     ptr += sizeof(long);
+    memcpy(&No.selfId, ptr, sizeof(long)); // 
+    ptr += sizeof(long);                   //
 
     // 2. Lê as chaves (Isto estava correto)
     No.vetorChaves.resize(No.numChaves);
