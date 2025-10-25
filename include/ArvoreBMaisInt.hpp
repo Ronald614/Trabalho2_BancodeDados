@@ -11,7 +11,7 @@ struct No
     bool ehFolha;
     int numChaves;
     long proximo; // Ponteiro para o próximo nó folha (lista ligada)
-    long selfId; // ID do bloco deste nó no arquivo
+    long selfId; // ID do bloco deste nó no arquivo (usado na memória)
     std::vector<int> vetorChaves;       // vetor de chaves do nó atual
     std::vector<long> vetorApontadores; // filhos ou ponteiros para registros
     No(bool ehFolha = false) : ehFolha(ehFolha), numChaves(0), proximo(-1), selfId(-1) {}
@@ -52,17 +52,32 @@ private:
     long getNovoId();                               // retorna novo id com base no total de blocos
     No *lerNo(long idBloco, No *no);                // ler no do arquivo
 
-    // usado na logica da arvore
+    // --- Funções de Inserção ---
     void splitChild(No *parent, int childIndex);           // dividir filho (usado na insercao)
     void insertNonFull(No *No, int key, long dataPointer); // inserir em no nao cheio (usado na insercao)
-    void printintree(No *No, int level);                   // imprimir arvore recursivamente (nao implementado)
+
+    // --- Funções de Remoção ---
+    void removeRecursivo(No* noAtual, int key);
+    int findKeyIndex(No* no, int key);
+    void removeFromLeaf(No* folha, int keyIndex);
+    void removeFromInternal(No* interno, int keyIndex);
+    int getPred(No* no, int index);
+    int getSucc(No* no, int index);
+    void fillNode(No* pai, int indexFilho);
+    void borrowFromPrev(No* pai, int indexFilho);
+    void borrowFromNext(No* pai, int indexFilho);
+    void merge(No* pai, int indexFilho);
+
+    // --- Funções de Impressão ---
+    void printintree(No *No, int level);                   // imprimir arvore recursivamente
     
 public:
     // construtor e métodos públicos
     BPlusTreeInt(const std::string &nomeArquivo, size_t tamanhoBloco); // construtor
     void insert(int chave, long apontadorDados);                       // inserir chave com apontador para dado
     long search(int chave);                                            // buscar chave
-    void printintree();                                                // imprimir árvore (nao implementado)
+    void remove(int chave);                                            // <-- ADICIONADO
+    void printintree();                                                // imprimir árvore
 };
 
 #endif // ARVOREBMAIS_HPP

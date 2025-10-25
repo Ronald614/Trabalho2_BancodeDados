@@ -1,11 +1,12 @@
 // Bibliotecas padrão necessárias
+#include <iostream>           // Para imprimir entradas invalidas
 #include <vector>             // Para std::vector usado em No
 #include <cstring>            // Para memcpy e memset
 #include <stdexcept>          // Para exceções padrão usados no construtor
 #include <math.h>             // Para floor (na definição de 'm')
 #include <cmath> 
 #include "GerenciaBlocos.hpp" // Gerenciamento de blocos em disco
-#include "Arvorebmais.hpp"    // Declaração da classe BPlusTreeInt
+#include "ArvoreBMaisInt.hpp"    // Declaração da classe BPlusTreeInt
 
 /*
  * ==========================================================
@@ -556,7 +557,7 @@ long BPlusTreeInt::search(int key)
 }
 
 // ==========================================================
-// NOVAS FUNÇÕES PARA REMOÇÃO
+// FUNÇÕES PARA REMOÇÃO 
 // ==========================================================
 
 // Função pública que inicia a remoção
@@ -567,410 +568,372 @@ void BPlusTreeInt::remove(int key) {
     }
 
     // Carrega a raiz
-    No* rootNo = new No();
-    lerNo(idRaiz, rootNo);
+    No* noRaiz = new No();
+    lerNo(idRaiz, noRaiz);
 
     // Chama a função recursiva de remoção
-    removeRecursivo(rootNo, key);
+    removeRecursivo(noRaiz, key);
 
     // --- Tratamento especial para a raiz ---
-    // Se a raiz ficou vazia após a remoção (acontece se a raiz antiga foi fundida com seu único filho)
-    if (rootNo->numChaves == 0) {
-        // Se a raiz era uma folha, a árvore está vazia agora
-        if (rootNo->ehFolha) {
-            idRaiz = -1; // Marca a árvore como vazia
-            // Poderíamos deletar o bloco 1 do arquivo aqui, mas não é estritamente necessário
-            // e complica a alocação de novos IDs. Deixaremos o bloco órfão por simplicidade.
+    if (noRaiz->numChaves == 0) {
+        if (noRaiz->ehFolha) {
+            idRaiz = -1; 
         } else {
-            // Se a raiz era interna e ficou vazia, a nova raiz é o seu (único) filho
-            idRaiz = rootNo->vetorApontadores[0];
-            // O bloco da raiz antiga (rootNo->selfId) fica órfão.
+            idRaiz = noRaiz->vetorApontadores[0];
         }
-        // Atualiza o cabeçalho no disco
         escreverCabecalho(); 
     }
     // --------------------------------------
 
-    delete rootNo; // Libera a memória do nó raiz carregado
+    delete noRaiz; // Libera a memória do nó raiz carregado
 }
 
-// Encontra o índice da chave 'key' em 'no', ou o índice onde ela deveria ser inserida
-// (Usado tanto na busca quanto na remoção)
+// Encontra o índice da chave 'key' em 'no'
 int BPlusTreeInt::findKeyIndex(No* no, int key) {
-    int index = 0;
-    // Procura o primeiro índice onde key <= no->vetorChaves[index]
-    while (index < no->numChaves && no->vetorChaves[index] < key) {
-        ++index;
+    int indice = 0;
+    while (indice < no->numChaves && no->vetorChaves[indice] < key) {
+        ++indice;
     }
-    return index;
+    return indice;
 }
 
-// Função recursiva principal para remoção
+// Função recursiva principal para remoção (CORRIGIDA)
 void BPlusTreeInt::removeRecursivo(No* noAtual, int key) {
-    int keyIndex = findKeyIndex(noAtual, key);
+    int indiceChave = findKeyIndex(noAtual, key);
 
     // --- CASO 1: A chave está no nó ATUAL ---
-    if (keyIndex < noAtual->numChaves && noAtual->vetorChaves[keyIndex] == key) {
-        
+    if (indiceChave < noAtual->numChaves && noAtual->vetorChaves[indiceChave] == key) {
+        // A chave foi encontrada neste nó. Delega a remoção para a função apropriada.
         if (noAtual->ehFolha) {
-            // --- Subcaso 1.1: Nó é folha e a chave está aqui ---
-            removeFromLeaf(noAtual, keyIndex);
+            removeFromLeaf(noAtual, indiceChave);
         } else {
-            // --- Subcaso 1.2: Nó é interno e a chave está aqui ---
-            removeFromInternal(noAtual, keyIndex);
+            removeFromInternal(noAtual, indiceChave);
         }
     } 
     // --- CASO 2: A chave NÃO está no nó atual ---
     else {
-        // Se for folha, a chave não existe na árvore
+        // Se este nó é uma folha e a chave não está aqui, ela não existe na árvore.
         if (noAtual->ehFolha) {
             std::cout << "Chave " << key << " não encontrada na árvore." << std::endl;
             return;
         }
 
         // --- Subcaso 2.1: Nó é interno, desce para o filho apropriado ---
+        // 'indiceChave' agora indica o índice do ponteiro para a subárvore onde a chave pode estar.
         
-        // 'keyIndex' agora indica para qual filho descer
-        
-        // Verifica se é o último ponteiro (caso a chave seja maior que todas no nó)
-        bool ehUltimoFilho = (keyIndex == noAtual->numChaves);
-
-        // --- Passo Crucial: Garantir que o filho terá chaves suficientes *antes* de descer ---
-        // Carrega o filho para verificar seu tamanho
-        long childId = noAtual->vetorApontadores[keyIndex];
-        No* childNo = new No();
-        lerNo(childId, childNo);
-
-        // Calcula o número mínimo de chaves permitido
-        int minKeys;
-        if (childNo->ehFolha) {
-            // Para folhas, o mínimo é ceil(m / 2.0) - 1 ??? OU floor((m-1)/2) ??? -> Ver Cormen/Definição B+
-            // Assumindo mínimo de chaves = floor(m/2) para folhas B+
-             minKeys = m / 2; // Arredonda para baixo
-        } else {
-            // Para internos, o mínimo é ceil((m-1) / 2.0) ??? OU ceil(m/2)-1 ??? -> Ver Cormen/Definição B+
-            // Assumindo mínimo de chaves = ceil(m/2) - 1 para internos B+ (que têm m filhos)
-            minKeys = (m + 1) / 2 -1; // ceil(m/2) - 1
+        long idFilho = noAtual->vetorApontadores[indiceChave];
+        No* noFilho = new No();
+        // Tenta carregar o filho. Se falhar (ex: id inválido), lança exceção.
+        try {
+            lerNo(idFilho, noFilho);
+        } catch (const std::exception& e) {
+            delete noFilho; // Limpa memória antes de relançar
+            throw std::runtime_error("Erro ao tentar ler filho ID " + std::to_string(idFilho) + " em removeRecursivo: " + e.what());
         }
 
 
-        // Se o filho está no limite mínimo, precisa de tratamento (fillNode)
-        if (childNo->numChaves == minKeys) {
+        // Calcula o número mínimo de chaves permitido para um nó não-raiz.
+        int minChaves;
+        if (noFilho->ehFolha) {
+             // Mínimo de chaves para folhas em B+ Tree é floor(m/2).
+             minChaves = m / 2; 
+        } else {
+             // Mínimo de chaves para nós internos em B+ Tree é ceil(m/2) - 1.
+             minChaves = (m + 1) / 2 - 1; 
+        }
 
+        // Verifica se o filho tem menos chaves que o mínimo permitido (ou está no limite).
+        // A lógica de underflow é acionada ANTES de descer para o filho.
+        if (noFilho->numChaves <= minChaves) { // Usar <= é mais seguro que ==
             
+            // Libera a memória do ponteiro do filho ANTES de chamar fillNode.
+            // fillNode (especificamente a função 'merge'/'fundir') pode
+            // mover todos os dados do 'noFilho' para outro nó e tornar
+            // o bloco 'idFilho' obsoleto/órfão. É mais seguro não ter mais
+            // um ponteiro para ele na memória neste ponto.
+            delete noFilho; 
+            noFilho = nullptr; // Define como nulo para evitar double delete posterior.
 
-            fillNode(noAtual, keyIndex); // Tenta emprestar ou fazer merge
+            // Chama a função que trata o underflow, tentando emprestar ou fundir.
+            fillNode(noAtual, indiceChave); 
 
-            // fillNode pode ter modificado o pai (noAtual) e a estrutura abaixo dele.
-            // Precisamos re-calcular o índice do filho para onde descer,
-            // pois a chave pode ter se movido para um nó diferente após merge/borrow.
-            // OBS: Esta é uma simplificação. Uma implementação robusta revalidaria o caminho.
-            // Por simplicidade aqui, vamos assumir que após fillNode, descemos pelo mesmo índice
-            // ou pelo índice anterior se houve merge com o esquerdo.
-            // A chamada recursiva *dentro* de fillNode (em merge) já deve ter tratado a chave.
-            // Se fillNode fez borrow, a recursão continua normalmente.
-            // Se fillNode fez merge, a recursão já aconteceu no nó fundido.
-            // Então, se fillNode foi chamado, a remoção já foi tratada abaixo.
-             delete childNo;
-             return; // A recursão já foi feita dentro de fillNode/merge se necessário
+            // Após fillNode (emprestar ou fundir), a estrutura da árvore abaixo 
+            // do 'noAtual' pode ter mudado significativamente. 
+            // A chave 'key' que estamos tentando remover pode ter se movido para um nó diferente
+            // (por exemplo, se 'noFilho' foi fundido com um irmão).
+            // Para garantir que a remoção seja concluída corretamente, reiniciamos 
+            // a busca e remoção a partir do nó PAI ('noAtual'), que pode ter sido
+            // modificado por 'fillNode'. Esta chamada recursiva cuidará de descer
+            // pelo novo caminho correto, se necessário.
+            removeRecursivo(noAtual, key); 
+            
+            // Retorna, pois a chamada recursiva acima tratará o resto da remoção.
+            return; 
 
         } else {
-             // O filho tem chaves suficientes, desce recursivamente
-             removeRecursivo(childNo, key);
+             // O filho tem chaves suficientes, a recursão pode descer normalmente.
+             removeRecursivo(noFilho, key);
+             
+             // Libera a memória do filho APÓS a chamada recursiva ter retornado.
+             // Verifica se o ponteiro ainda é válido (não foi deletado no bloco 'if' acima).
+             if (noFilho != nullptr) {
+                delete noFilho; 
+             }
         }
        
-        delete childNo; // Libera a memória do filho carregado neste nível
+        // A limpeza de 'noFilho' agora é feita dentro dos branches if/else.
     }
 }
 
-
 // Remove a chave do nó folha
 void BPlusTreeInt::removeFromLeaf(No* folha, int keyIndex) {
-    // Simplesmente remove a chave e o ponteiro de dados correspondente
     folha->vetorChaves.erase(folha->vetorChaves.begin() + keyIndex);
     folha->vetorApontadores.erase(folha->vetorApontadores.begin() + keyIndex);
     folha->numChaves--;
 
-    // Salva a folha modificada no disco
     escreverNo(folha);
 }
 
 // Remove a chave do nó interno
 void BPlusTreeInt::removeFromInternal(No* interno, int keyIndex) {
-    int key = interno->vetorChaves[keyIndex];
+    int chave = interno->vetorChaves[keyIndex];
 
-    // Carrega os filhos esquerdo e direito da chave a ser removida
-    long leftChildId = interno->vetorApontadores[keyIndex];
-    long rightChildId = interno->vetorApontadores[keyIndex + 1];
-    No* leftChild = new No();
-    No* rightChild = new No();
-    lerNo(leftChildId, leftChild);
-    lerNo(rightChildId, rightChild);
+    long idFilhoEsquerdo = interno->vetorApontadores[keyIndex];
+    long idFilhoDireito = interno->vetorApontadores[keyIndex + 1];
+    No* filhoEsquerdo = new No();
+    No* filhoDireito = new No();
+    lerNo(idFilhoEsquerdo, filhoEsquerdo);
+    lerNo(idFilhoDireito, filhoDireito);
 
-    // Calcula o número mínimo de chaves permitido (igual a removeRecursivo)
-    int minKeys;
-     if (leftChild->ehFolha) { // Se um é folha, o outro também é (na B+)
-          minKeys = m / 2; 
+    int minChaves;
+     if (filhoEsquerdo->ehFolha) { 
+          minChaves = m / 2; 
      } else {
-          minKeys = (m + 1) / 2 -1; 
+          minChaves = (m + 1) / 2 -1; 
      }
 
-    // --- CASO 2a: O filho esquerdo tem chaves suficientes (> minKeys) ---
-    if (leftChild->numChaves > minKeys) {
-        // Encontra o predecessor (a maior chave na subárvore esquerda)
-        int pred = getPred(interno, keyIndex);
-        // Substitui a chave 'key' no nó interno pelo seu predecessor
-        interno->vetorChaves[keyIndex] = pred;
-        escreverNo(interno); // Salva o nó interno modificado
-        // Recursivamente remove o predecessor de onde ele veio (na subárvore esquerda)
-        removeRecursivo(leftChild, pred); 
+    // --- CASO 2a: O filho esquerdo tem chaves suficientes (> minChaves) ---
+    if (filhoEsquerdo->numChaves > minChaves) {
+        int predecessor = getPred(interno, keyIndex);
+        interno->vetorChaves[keyIndex] = predecessor;
+        escreverNo(interno); 
+        removeRecursivo(filhoEsquerdo, predecessor); 
     }
-    // --- CASO 2b: O filho direito tem chaves suficientes (> minKeys) ---
-    else if (rightChild->numChaves > minKeys) {
-        // Encontra o sucessor (a menor chave na subárvore direita)
-        int succ = getSucc(interno, keyIndex);
-        // Substitui a chave 'key' no nó interno pelo seu sucessor
-        interno->vetorChaves[keyIndex] = succ;
-        escreverNo(interno); // Salva o nó interno modificado
-        // Recursivamente remove o sucessor de onde ele veio (na subárvore direita)
-        removeRecursivo(rightChild, succ);
+    // --- CASO 2b: O filho direito tem chaves suficientes (> minChaves) ---
+    else if (filhoDireito->numChaves > minChaves) {
+        int sucessor = getSucc(interno, keyIndex);
+        interno->vetorChaves[keyIndex] = sucessor;
+        escreverNo(interno); 
+        removeRecursivo(filhoDireito, sucessor);
     }
-    // --- CASO 2c: Ambos os filhos estão no limite mínimo (minKeys) ---
+    // --- CASO 2c: Ambos os filhos estão no limite mínimo (minChaves) ---
     else {
-        // Faz o merge do filho esquerdo, a chave 'key' do pai, e o filho direito
-        // A função merge cuidará de remover 'key' do pai e chamar a recursão
         merge(interno, keyIndex); 
     }
 
-    delete leftChild;
-    delete rightChild;
+    delete filhoEsquerdo;
+    delete filhoDireito;
 }
 
 // Encontra a maior chave na subárvore enraizada no filho 'index' do nó 'no'
 int BPlusTreeInt::getPred(No* no, int index) {
-    // Começa descendo para o filho esquerdo da chave 'index'
-    long currentId = no->vetorApontadores[index];
-    No* current = new No();
-    lerNo(currentId, current);
+    long idAtual = no->vetorApontadores[index];
+    No* noAtual = new No();
+    lerNo(idAtual, noAtual);
 
-    // Desce pela direita até encontrar uma folha
-    while (!current->ehFolha) {
-        long nextId = current->vetorApontadores[current->numChaves]; // Último ponteiro
-        lerNo(nextId, current);
+    while (!noAtual->ehFolha) {
+        long idProximo = noAtual->vetorApontadores[noAtual->numChaves];
+        lerNo(idProximo, noAtual);
     }
 
-    // A última chave da folha encontrada é o predecessor
-    int pred = current->vetorChaves[current->numChaves - 1];
-    delete current;
-    return pred;
+    int predecessor = noAtual->vetorChaves[noAtual->numChaves - 1];
+    delete noAtual;
+    return predecessor;
 }
 
 // Encontra a menor chave na subárvore enraizada no filho 'index + 1' do nó 'no'
 int BPlusTreeInt::getSucc(No* no, int index) {
-    // Começa descendo para o filho direito da chave 'index'
-    long currentId = no->vetorApontadores[index + 1];
-    No* current = new No();
-    lerNo(currentId, current);
+    long idAtual = no->vetorApontadores[index + 1];
+    No* noAtual = new No();
+    lerNo(idAtual, noAtual);
 
-    // Desce pela esquerda até encontrar uma folha
-    while (!current->ehFolha) {
-        long nextId = current->vetorApontadores[0]; // Primeiro ponteiro
-        lerNo(nextId, current);
+    while (!noAtual->ehFolha) {
+        long idProximo = noAtual->vetorApontadores[0];
+        lerNo(idProximo, noAtual);
     }
 
-    // A primeira chave da folha encontrada é o sucessor
-    int succ = current->vetorChaves[0];
-    delete current;
-    return succ;
+    int sucessor = noAtual->vetorChaves[0];
+    delete noAtual;
+    return sucessor;
 }
-
 
 // --- Funções para Lidar com Underflow ---
 
-// Função chamada ANTES de descer para um filho que tem o número mínimo de chaves
 void BPlusTreeInt::fillNode(No* pai, int indexFilho) {
     // Tenta emprestar do irmão esquerdo primeiro
-    if (indexFilho != 0) { // Se não for o primeiro filho
-        long prevSiblingId = pai->vetorApontadores[indexFilho - 1];
-        No* prevSibling = new No();
-        lerNo(prevSiblingId, prevSibling);
+    if (indexFilho != 0) { 
+        long idIrmaoAnterior = pai->vetorApontadores[indexFilho - 1];
+        No* irmaoAnterior = new No();
+        lerNo(idIrmaoAnterior, irmaoAnterior);
 
-        // Calcula minKeys (igual a removeRecursivo)
-         int minKeys;
-         if (prevSibling->ehFolha) { 
-              minKeys = m / 2; 
+         int minChaves;
+         if (irmaoAnterior->ehFolha) { 
+              minChaves = m / 2; 
          } else {
-              minKeys = (m + 1) / 2 -1; 
+              minChaves = (m + 1) / 2 -1; 
          }
 
-        if (prevSibling->numChaves > minKeys) {
-            borrowFromPrev(pai, indexFilho); // Empresta do esquerdo
-            delete prevSibling;
-            return; // Resolvido
+        if (irmaoAnterior->numChaves > minChaves) {
+            borrowFromPrev(pai, indexFilho); 
+            delete irmaoAnterior;
+            return; 
         }
-        delete prevSibling; // Não pode emprestar, libera memória
+        delete irmaoAnterior; 
     }
 
     // Tenta emprestar do irmão direito
-    if (indexFilho != pai->numChaves) { // Se não for o último filho
-        long nextSiblingId = pai->vetorApontadores[indexFilho + 1];
-        No* nextSibling = new No();
-        lerNo(nextSiblingId, nextSibling);
+    if (indexFilho != pai->numChaves) { 
+        long idIrmaoProximo = pai->vetorApontadores[indexFilho + 1];
+        No* irmaoProximo = new No();
+        lerNo(idIrmaoProximo, irmaoProximo);
 
-        // Calcula minKeys (igual a removeRecursivo)
-         int minKeys;
-         if (nextSibling->ehFolha) { 
-              minKeys = m / 2; 
+         int minChaves;
+         if (irmaoProximo->ehFolha) { 
+              minChaves = m / 2; 
          } else {
-              minKeys = (m + 1) / 2 -1; 
+              minChaves = (m + 1) / 2 -1; 
          }
 
 
-        if (nextSibling->numChaves > minKeys) {
-            borrowFromNext(pai, indexFilho); // Empresta do direito
-            delete nextSibling;
-            return; // Resolvido
+        if (irmaoProximo->numChaves > minChaves) {
+            borrowFromNext(pai, indexFilho); 
+            delete irmaoProximo;
+            return; 
         }
-        delete nextSibling; // Não pode emprestar, libera memória
+        delete irmaoProximo; 
     }
 
     // Se não pode emprestar de nenhum dos lados, faz merge
     if (indexFilho != pai->numChaves) {
-        merge(pai, indexFilho); // Faz merge com o irmão direito
+        merge(pai, indexFilho); 
     } else {
-        merge(pai, indexFilho - 1); // Faz merge com o irmão esquerdo (último filho)
+        merge(pai, indexFilho - 1); 
     }
 }
 
 // Empresta uma chave do irmão esquerdo ('indexFilho - 1') para o filho ('indexFilho')
 void BPlusTreeInt::borrowFromPrev(No* pai, int indexFilho) {
-    long filhoId = pai->vetorApontadores[indexFilho];
-    long prevSiblingId = pai->vetorApontadores[indexFilho - 1];
-    No* filho = new No();
-    No* prevSibling = new No();
-    lerNo(filhoId, filho);
-    lerNo(prevSiblingId, prevSibling);
+    long idFilho = pai->vetorApontadores[indexFilho];
+    long idIrmaoAnterior = pai->vetorApontadores[indexFilho - 1];
+    No* noFilho = new No();
+    No* irmaoAnterior = new No();
+    lerNo(idFilho, noFilho);
+    lerNo(idIrmaoAnterior, irmaoAnterior);
 
-    // --- Caso: Nós são internos ---
-    if (!filho->ehFolha) {
-        // 1. Move a chave separadora do pai para o início do filho
-        filho->vetorChaves.insert(filho->vetorChaves.begin(), pai->vetorChaves[indexFilho - 1]);
-        
-        // 2. Move o último ponteiro do irmão esquerdo para o início do filho
-        filho->vetorApontadores.insert(filho->vetorApontadores.begin(), prevSibling->vetorApontadores.back());
-        prevSibling->vetorApontadores.pop_back();
-
-        // 3. Move a última chave do irmão esquerdo para o pai (substituindo a que desceu)
-        pai->vetorChaves[indexFilho - 1] = prevSibling->vetorChaves.back();
-        prevSibling->vetorChaves.pop_back();
+    if (!noFilho->ehFolha) {
+        noFilho->vetorChaves.insert(noFilho->vetorChaves.begin(), pai->vetorChaves[indexFilho - 1]);
+        noFilho->vetorApontadores.insert(noFilho->vetorApontadores.begin(), irmaoAnterior->vetorApontadores.back());
+        irmaoAnterior->vetorApontadores.pop_back();
+        pai->vetorChaves[indexFilho - 1] = irmaoAnterior->vetorChaves.back();
+        irmaoAnterior->vetorChaves.pop_back();
 
     } 
-    // --- Caso: Nós são folhas ---
     else {
-        // 1. Copia a última chave do irmão esquerdo para o início do filho
-        filho->vetorChaves.insert(filho->vetorChaves.begin(), prevSibling->vetorChaves.back());
-        // 2. Copia o último ponteiro de dados do irmão esquerdo para o início do filho
-        filho->vetorApontadores.insert(filho->vetorApontadores.begin(), prevSibling->vetorApontadores.back());
-        prevSibling->vetorChaves.pop_back();
-        prevSibling->vetorApontadores.pop_back();
-
-        // 3. Atualiza a chave no pai para ser a *nova* primeira chave do filho (que veio do irmão)
-        pai->vetorChaves[indexFilho - 1] = filho->vetorChaves[0];
+        noFilho->vetorChaves.insert(noFilho->vetorChaves.begin(), irmaoAnterior->vetorChaves.back());
+        noFilho->vetorApontadores.insert(noFilho->vetorApontadores.begin(), irmaoAnterior->vetorApontadores.back());
+        irmaoAnterior->vetorChaves.pop_back();
+        irmaoAnterior->vetorApontadores.pop_back();
+        pai->vetorChaves[indexFilho - 1] = noFilho->vetorChaves[0];
     }
 
-    // Atualiza contadores
-    filho->numChaves++;
-    prevSibling->numChaves--;
+    noFilho->numChaves++;
+    irmaoAnterior->numChaves--;
 
-    // Salva as alterações no disco
     escreverNo(pai);
-    escreverNo(filho);
-    escreverNo(prevSibling);
+    escreverNo(noFilho);
+    escreverNo(irmaoAnterior);
 
-    delete filho;
-    delete prevSibling;
+    delete noFilho;
+    delete irmaoAnterior;
 }
 
 void BPlusTreeInt::borrowFromNext(No* pai, int indexFilho) {
-    long filhoId = pai->vetorApontadores[indexFilho];
-    long nextSiblingId = pai->vetorApontadores[indexFilho + 1];
-    No* filho = new No();
-    No* nextSibling = new No();
-    lerNo(filhoId, filho);
-    lerNo(nextSiblingId, nextSibling);
+    long idFilho = pai->vetorApontadores[indexFilho];
+    long idIrmaoProximo = pai->vetorApontadores[indexFilho + 1];
+    No* noFilho = new No();
+    No* irmaoProximo = new No();
+    lerNo(idFilho, noFilho);
+    lerNo(idIrmaoProximo, irmaoProximo);
 
-    if (!filho->ehFolha) {
-        filho->vetorChaves.push_back(pai->vetorChaves[indexFilho]);
-
-        filho->vetorApontadores.push_back(nextSibling->vetorApontadores.front());
-        nextSibling->vetorApontadores.erase(nextSibling->vetorApontadores.begin());
-
-        pai->vetorChaves[indexFilho] = nextSibling->vetorChaves.front();
-        nextSibling->vetorChaves.erase(nextSibling->vetorChaves.begin());
+    if (!noFilho->ehFolha) {
+        noFilho->vetorChaves.push_back(pai->vetorChaves[indexFilho]);
+        noFilho->vetorApontadores.push_back(irmaoProximo->vetorApontadores.front());
+        irmaoProximo->vetorApontadores.erase(irmaoProximo->vetorApontadores.begin());
+        pai->vetorChaves[indexFilho] = irmaoProximo->vetorChaves.front();
+        irmaoProximo->vetorChaves.erase(irmaoProximo->vetorChaves.begin());
     }
     else {
-        filho->vetorChaves.push_back(nextSibling->vetorChaves.front());
-        filho->vetorApontadores.push_back(nextSibling->vetorApontadores.front());
-        nextSibling->vetorChaves.erase(nextSibling->vetorChaves.begin());
-        nextSibling->vetorApontadores.erase(nextSibling->vetorApontadores.begin());
-
-        pai->vetorChaves[indexFilho] = nextSibling->vetorChaves[0];
+        noFilho->vetorChaves.push_back(irmaoProximo->vetorChaves.front());
+        noFilho->vetorApontadores.push_back(irmaoProximo->vetorApontadores.front());
+        irmaoProximo->vetorChaves.erase(irmaoProximo->vetorChaves.begin());
+        irmaoProximo->vetorApontadores.erase(irmaoProximo->vetorApontadores.begin());
+        pai->vetorChaves[indexFilho] = irmaoProximo->vetorChaves[0];
     }
 
-    filho->numChaves++;
-    nextSibling->numChaves--;
+    noFilho->numChaves++;
+    irmaoProximo->numChaves--;
 
     escreverNo(pai);
-    escreverNo(filho);
-    escreverNo(nextSibling);
+    escreverNo(noFilho);
+    escreverNo(irmaoProximo);
 
-    delete filho;
-    delete nextSibling;
+    delete noFilho;
+    delete irmaoProximo;
 }
 
 void BPlusTreeInt::merge(No* pai, int indexFilho) {
-    long leftChildId = pai->vetorApontadores[indexFilho];
-    long rightChildId = pai->vetorApontadores[indexFilho + 1];
-    No* leftChild = new No();
-    No* rightChild = new No();
-    lerNo(leftChildId, leftChild);
-    lerNo(rightChildId, rightChild);
+    long idFilhoEsquerdo = pai->vetorApontadores[indexFilho];
+    long idFilhoDireito = pai->vetorApontadores[indexFilho + 1];
+    No* filhoEsquerdo = new No();
+    No* filhoDireito = new No();
+    lerNo(idFilhoEsquerdo, filhoEsquerdo);
+    lerNo(idFilhoDireito, filhoDireito);
 
-    if (!leftChild->ehFolha) {
+    if (!filhoEsquerdo->ehFolha) { 
         
-        leftChild->vetorChaves.push_back(pai->vetorChaves[indexFilho]);
+        filhoEsquerdo->vetorChaves.push_back(pai->vetorChaves[indexFilho]);
 
-        leftChild->vetorChaves.insert(leftChild->vetorChaves.end(), 
-                                      rightChild->vetorChaves.begin(), 
-                                      rightChild->vetorChaves.end());
+        filhoEsquerdo->vetorChaves.insert(filhoEsquerdo->vetorChaves.end(), 
+                                      filhoDireito->vetorChaves.begin(), 
+                                      filhoDireito->vetorChaves.end());
 
-        leftChild->vetorApontadores.insert(leftChild->vetorApontadores.end(), 
-                                          rightChild->vetorApontadores.begin(), 
-                                          rightChild->vetorApontadores.end());
+        filhoEsquerdo->vetorApontadores.insert(filhoEsquerdo->vetorApontadores.end(), 
+                                          filhoDireito->vetorApontadores.begin(), 
+                                          filhoDireito->vetorApontadores.end());
     }
 
     else {
 
-        leftChild->vetorChaves.insert(leftChild->vetorChaves.end(), 
-                                      rightChild->vetorChaves.begin(), 
-                                      rightChild->vetorChaves.end());
+        filhoEsquerdo->vetorChaves.insert(filhoEsquerdo->vetorChaves.end(), 
+                                      filhoDireito->vetorChaves.begin(), 
+                                      filhoDireito->vetorChaves.end());
                                       
-        leftChild->vetorApontadores.insert(leftChild->vetorApontadores.end(), 
-                                          rightChild->vetorApontadores.begin(), 
-                                          rightChild->vetorApontadores.end());
+        filhoEsquerdo->vetorApontadores.insert(filhoEsquerdo->vetorApontadores.end(), 
+                                          filhoDireito->vetorApontadores.begin(), 
+                                          filhoDireito->vetorApontadores.end());
         
-        leftChild->proximo = rightChild->proximo;
+        filhoEsquerdo->proximo = filhoDireito->proximo;
     }
 
-    leftChild->numChaves += rightChild->numChaves + (leftChild->ehFolha ? 0 : 1);
+    filhoEsquerdo->numChaves += filhoDireito->numChaves + (filhoEsquerdo->ehFolha ? 0 : 1);
 
     pai->vetorChaves.erase(pai->vetorChaves.begin() + indexFilho);
     pai->vetorApontadores.erase(pai->vetorApontadores.begin() + indexFilho + 1);
     pai->numChaves--;
 
     escreverNo(pai);
-    escreverNo(leftChild);
+    escreverNo(filhoEsquerdo);
 
-    delete leftChild;
-    delete rightChild;
+    delete filhoEsquerdo;
+    delete filhoDireito;
 }
