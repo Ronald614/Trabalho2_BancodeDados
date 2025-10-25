@@ -3,67 +3,224 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <cstring>
+#include <stdexcept>
+#include <algorithm>
 
-std::string remove_aspas (const std::string& str) {
-    
-    if (str.length() >= 2 && str.front() == '"' && str.back() == '"') {
-    
-        return str.substr(1, str.length() - 2);
-    
-    }
-    
-    return str;
+//##################################################################################################################################
+// FUNÇÕES AUXILIARES
+//##################################################################################################################################
+
+/**
+ * @brief Imprime o conteúdo de um struct Artigo de forma legível.
+ * @param artigo O struct Artigo a ser impresso.
+ */
+
+void printArtigo(const Artigo& artigo) {
+
+    std::cout << "-------------------------------------\n";
+    std::cout << "---> Imprimindo artigo.\n";
+
+    std::cout << "ID: " << artigo.id << "\n";
+    std::cout << "Ano: " << artigo.ano << "\n";
+    std::cout << "Citacoes: " << artigo.citacoes << "\n";
+
+    std::cout << "Titulo: " << (artigo.titulo[0] == '\0' ? "[VAZIO]" : artigo.titulo) << "\n";
+    std::cout << "Autores: " << (artigo.autores[0] == '\0' ? "[VAZIO]" : artigo.autores) << "\n";
+    std::cout << "Atualizacao: " << (artigo.atualizacao[0] == '\0' ? "[VAZIO]" : artigo.atualizacao) << "\n";
+    std::cout << "Snippet: " << (artigo.snippet[0] == '\0' ? "[VAZIO]" : artigo.snippet) << "\n";
+
+    std::cout << "-------------------------------------\n";
 
 }
 
-Artigo parseCSVLine(const std::string& line) {
+void copiarStringSeguro(char* destino, const std::string& origem, size_t tamanhoDestino) {
+    
+    // Garante que o número máximo de caracteres copiado seja (tamanhoDestino - 1) para reservar 1 byte para o terminador nulo ('\0').
+    std::strncpy(destino, origem.c_str(), tamanhoDestino - 1);
+    
+    // Garante que a string de destino seja terminada em nulo, mesmo que a origem tenha sido maior que (tamanhoDestino - 1).
+    destino[tamanhoDestino - 1] = '\0';
 
-    std::stringstream ss(line);
-    std::string campo;
-    std::vector<std::string> lista_de_campos;
+}
 
-    while (std::getline(ss, campo, ';')) {
+int stringParaIntSeguro(const std::string& texto) {
+    
+    if (texto.empty()) {
+        
+        return 0;
+        
+    }
+    
+    try {
+        
+        return std::stoi(texto);
+        
+    }
+    
+    catch (const std::exception&) {
 
-        lista_de_campos.push_back(campo);
+        return 0;
+
+    }
+
+}
+
+std::string limpaCampo(const std::string& campo_bruto) {
+    
+    if (campo_bruto.empty()) {
+        
+        return "";
+        
+    }
+    
+    if (campo_bruto == "NULL") {
+        
+        return "";
+        
+    }
+
+    if (campo_bruto.length() >= 2 && campo_bruto.front() == '"' && campo_bruto.back() == '"') {
+        
+        return campo_bruto.substr(1, campo_bruto.length() - 2);
+    
+    }
+    
+    return campo_bruto;
+
+}
+
+/**
+ * @brief Divide uma linha CSV em 7 campos.
+ * Lida com delimitadores (;) dentro de aspas.
+ * Para de dividir após o 6º delimitador real.
+ * 
+ * @param linha A linha de texto completa do CSV.
+ * 
+ * @return Um vetor de strings contendo os campos brutos ainda com aspas.
+ * Retorna exatamente 7 campos se for bem-sucedido.
+ * Retorna < 7 campos se a linha for mal formatada.
+ */
+
+std::vector<std::string> divideCSVLinha(const std::string& linha) {
+    
+    std::vector<std::string> campos;
+    std::string campo_atual;
+    
+    bool entre_aspas = false;
+    
+    int contador_ponto_virgula = 0;
+
+    for (size_t i = 0; i < linha.length(); ++i) {
+        
+        char caractere = linha[i];
+
+        if (caractere == '"') {
+
+            entre_aspas = !entre_aspas;
+            campo_atual += caractere;
+        
+        }
+        
+        else if (caractere == ';' && !entre_aspas) {
+            
+            campos.push_back(campo_atual);
+            campo_atual = "";
+            contador_ponto_virgula++;
+
+            if (contador_ponto_virgula == 6) {
+                
+                campos.push_back(linha.substr(i + 1));
+            
+                return campos;
+            
+            }
+
+        }
+        
+        else {
+
+            campo_atual += caractere;
+
+        }
+
+    }
+    
+    campos.push_back(campo_atual);
+
+    return campos;
+
+}
+
+
+//##################################################################################################################################
+// Função de parsing.
+//##################################################################################################################################
+
+/**
+ * @brief Faz o parsing de uma linha CSV, usando o split de máquina de estados.
+ * 
+ * @param linha A linha de texto completa do CSV.
+ * 
+ * @param[out] artigo_saida Um ponteiro para uma struct Artigo a ser preenchida.
+ * 
+ * @return true se o parsing foi bem-sucedido, false caso contrário.
+ */
+
+bool parseCSVLinha(const std::string& linha, Artigo& artigo_saida) {
+    
+    // Passo 1: Usar o split de máquina de estados com limite.
+    std::vector<std::string> campos = divideCSVLinha(linha);
+
+    // Passo 2: Validar o resultado.
+    // ---> Se a linha tiver 6 ou mais delimitadores reais, a função split sempre retornará 7 campos.
+    // ---> Se tiver menos de 6, ela retornará menos de 7.
+
+    if (campos.size() != 7) {
+        
+        std::cout << "[Parser] Linha ignorada (mal formatada, campos != 7): " << linha << std::endl;
+        
+        return false;
     
     }
 
-    Artigo artigo;
-
+    // Passo 3: Limpar os campos e preencher o struct
     try {
 
-        artigo.id = !lista_de_campos[0].empty() ? std::stoi(remove_aspas(lista_de_campos[0])) : 0;
+        std::string id_limpo = limpaCampo(campos[0]);
         
-        artigo.titulo = remove_aspas(lista_de_campos[1]);
+        artigo_saida.id = stringParaIntSeguro(id_limpo);
         
-        artigo.ano = !lista_de_campos[2].empty() ? std::stoi(remove_aspas(lista_de_campos[2])) : 0;
+        if (artigo_saida.id == 0) {
+            
+            std::cout << "[Parser] Linha ignorada (ID invalido ou zero): " << linha << std::endl;
+            
+            return false;
         
-        artigo.autores = remove_aspas(lista_de_campos[3]);
+        }
+
+        copiarStringSeguro(artigo_saida.titulo, limpaCampo(campos[1]), 300);
         
-        artigo.citacoes = !lista_de_campos[4].empty() ? std::stoi(remove_aspas(lista_de_campos[4])) : 0;
+        artigo_saida.ano = stringParaIntSeguro(limpaCampo(campos[2]));
+
+        copiarStringSeguro(artigo_saida.autores, limpaCampo(campos[3]), 150);
         
-        artigo.atualizacao = remove_aspas(lista_de_campos[5]);
+        artigo_saida.citacoes = stringParaIntSeguro(limpaCampo(campos[4]));
         
-        artigo.snippet = remove_aspas(lista_de_campos[6]);
+        copiarStringSeguro(artigo_saida.atualizacao, limpaCampo(campos[5]), 20);
+        
+        copiarStringSeguro(artigo_saida.snippet, limpaCampo(campos[6]), 1024);
 
     }
     
-    catch (const std::invalid_argument& e) {
+    catch (const std::exception& e) {
         
-        std::cerr << "Erro de conversão de tipo na linha: " << line << std::endl;
-
-        artigo.id = -1; 
-    
-    }
-    
-    catch (const std::out_of_range& e) {
-    
-        std::cerr << "Erro de valor fora do range na linha: " << line << std::endl;
+        std::cerr << "[Parser] Erro inesperado ao atribuir campos: " << e.what() << std::endl;
         
-        artigo.id = -1;
+        return false;
     
     }
 
-    return artigo;
+    return true;
 
 }

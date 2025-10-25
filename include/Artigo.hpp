@@ -8,12 +8,12 @@
 struct Artigo {
 
     int id;
-    std::string titulo;
+    char titulo[300];
     int ano;
-    std::string autores;
+    char autores[150];
     int citacoes;
-    std::string atualizacao;
-    std::string snippet;
+    char atualizacao[20];
+    char snippet[1024];
     
 };
 

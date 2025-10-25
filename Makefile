@@ -11,15 +11,10 @@ BINDIR = bin
 
 # --- Definição dos Programas e seus Arquivos Fonte ---
 PROGRAMS = upload findrec seek1 seek2
-
-# Arquivos .cpp que SÃO COMPARTILHADOS por vários programas
-COMMON_SRCS = $(SRCDIR)/BlockManager.cpp $(SRCDIR)/OSInfo.cpp $(SRCDIR)/Parser.cpp
-
-# Arquivos .cpp que são ESPECÍFICOS de cada programa
-UPLOAD_SRCS = $(SRCDIR)/upload.cpp $(COMMON_SRCS)
-FINDREC_SRCS = $(SRCDIR)/findrec.cpp $(COMMON_SRCS)
-SEEK1_SRCS = $(SRCDIR)/seek1.cpp $(COMMON_SRCS)
-SEEK2_SRCS = $(SRCDIR)/seek2.cpp $(COMMON_SRCS)
+UPLOAD_SRCS = $(SRCDIR)/upload.cpp $(SRCDIR)/OSInfo.cpp $(SRCDIR)/Parser.cpp $(SRCDIR)/gerenciador_de_blocos.cpp $(SRCDIR)/hash_extensivel.cpp $(SRCDIR)/Gerenciablocos.cpp $(SRCDIR)/Arvorebmais.cpp
+FINDREC_SRCS = $(SRCDIR)/findrec.cpp $(SRCDIR)/OSInfo.cpp $(SRCDIR)/Parser.cpp $(SRCDIR)/gerenciador_de_blocos.cpp $(SRCDIR)/hash_extensivel.cpp $(SRCDIR)/Gerenciablocos.cpp $(SRCDIR)/Arvorebmais.cpp
+SEEK1_SRCS = $(SRCDIR)/seek1.cpp $(SRCDIR)/OSInfo.cpp $(SRCDIR)/Parser.cpp $(SRCDIR)/gerenciador_de_blocos.cpp $(SRCDIR)/hash_extensivel.cpp $(SRCDIR)/Gerenciablocos.cpp $(SRCDIR)/Arvorebmais.cpp
+SEEK2_SRCS = $(SRCDIR)/seek2.cpp
 
 # --- Regras de Build Automáticas ---
 UPLOAD_OBJS = $(UPLOAD_SRCS:.cpp=.o)
@@ -53,7 +48,6 @@ $(SRCDIR)/%.o: $(SRCDIR)/%.cpp
 
 # --- Outras Regras ---
 
-# NOVA REGRA: Garante que o diretório de binários exista.
 # Esta regra será chamada como dependência pelas regras de linkagem acima.
 $(BINDIR):
 	mkdir -p $@

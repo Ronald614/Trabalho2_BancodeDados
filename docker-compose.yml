@@ -1,36 +1,28 @@
 services:
-  base:
-    build: .
-    image: tp2
-
   upload:
     image: tp2
-    depends_on:
-      - base
     volumes:
       - ./data:/data
-    command: ["./bin/upload", "/data/input.csv"]
+    working_dir: /app
+    entrypoint: ["./bin/upload"]
 
   findrec:
     image: tp2
-    depends_on:
-      - base
     volumes:
       - ./data:/data
-    command: ["./bin/findrec", "9876"]
+    working_dir: /app
+    entrypoint: ["./bin/findrec"]
 
   seek1:
     image: tp2
-    depends_on:
-      - base
     volumes:
       - ./data:/data
-    command: ["./bin/seek1", "5555"]
+    working_dir: /app
+    entrypoint: ["./bin/seek1"]
 
   seek2:
     image: tp2
-    depends_on:
-      - base
     volumes:
       - ./data:/data
-    command: ["./bin/seek2", "Outro Titulo de Exemplo"]
+    working_dir: /app
+    entrypoint: ["./bin/seek2"]

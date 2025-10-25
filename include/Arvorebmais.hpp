@@ -3,16 +3,16 @@
 
 #include <string>
 #include <vector>
-#include "GerenciaBlocos.hpp"
+#include "GerenciaBlocos.hpp" // Assumindo que você renomeou
 
-#pragma pack(push, 1) // Evitar padding nas structs No e header
-// As structs a seguir representam os nós e o cabeçalho do arquivo de índice.
+#pragma pack(push, 1) 
+// Structs No e cabecalho (sem alterações)
 struct No
 {
     bool ehFolha;
     int numChaves;
-    long proximo;
-    long selfId;
+    long proximo; // Ponteiro para o próximo nó folha (lista ligada)
+    long selfId; // ID do bloco deste nó no arquivo
     std::vector<int> vetorChaves;       // vetor de chaves do nó atual
     std::vector<long> vetorApontadores; // filhos ou ponteiros para registros
     No(bool ehFolha = false) : ehFolha(ehFolha), numChaves(0), proximo(-1), selfId(-1) {}
@@ -27,7 +27,7 @@ struct cabecalho
     int numBlocos;
     long tamanhoBloco;
 };
-#pragma pack(pop) // Restaura o alinhamento padrão
+#pragma pack(pop) 
 
 class BPlusTreeInt
 {
@@ -40,8 +40,6 @@ private:
     long idRaiz;                // Apontador pra raiz da arvore
     long totalBlocos;           // Total de blocos ja ocupado no arquivo
 
-    // assinaturas privadas
-
     // usado para escrever e ler nós do disco
     void escreverCabecalho();
     void lerCabecalho();
@@ -49,20 +47,37 @@ private:
     void deserializaNo(const char *buffer, No &no); // desserializar o no
     void escreverNo(No *no);                        // escrever no disco
     long getNovoId();                               // retorna novo id com base no total de blocos
-    No *lerNo(long idBloco, No *no);                // ler do disco
+    No *lerNo(long idBloco, No *no);                // ler do disco            
 
+    // Funções de Inserção
+    void splitChild(No *parent, int childIndex);           
+    void insertNonFull(No *no, int key, long dataPointer);         
 
-    // usado na logica da arvore
-    void splitChild(No *parent, int childIndex);           // dividir filho (usado na insercao)
-    void insertNonFull(No *No, int key, long dataPointer); // inserir em no nao cheio (usado na insercao)
-    void printintree(No *No, int level);                   // imprimir arvore recursivamente
+    void removeRecursivo(No* noAtual, int key);
+    int findKeyIndex(No* no, int key);
+    void removeFromLeaf(No* folha, int keyIndex);
+    void removeFromInternal(No* interno, int keyIndex);
 
+    void fillNode(No* pai, int indexFilho);
+    void borrowFromPrev(No* pai, int indexFilho);
+    void borrowFromNext(No* pai, int indexFilho);
+    void merge(No* pai, int indexFilho);
+    int getPred(No* no, int index);
+    int getSucc(No* no, int index);
+
+    void printintree(No *No, int level);        
+    
 public:
-    // construtor e métodos públicos
-    BPlusTreeInt(const std::string &nomeArquivo, size_t tamanhoBloco); // construtor
-    void insert(int chave, long apontadorDados);                       // inserir chave com ponteiro para dado
-    long search(int chave);                                            // buscar chave
-    void printintree();                                                // imprimir árvore
+    // Construtor
+    BPlusTreeInt(const std::string &nomeArquivo, size_t tamanhoBloco); 
+    
+    // Inserção e Busca
+    void insert(int chave, long apontadorDados);                       
+    long search(int chave);                                            
+    void remove(int chave);
+
+    // Impressão
+    void printintree();                                                
 };
 
 #endif // ARVOREBMAIS_HPP
