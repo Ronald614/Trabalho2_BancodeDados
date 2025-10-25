@@ -4,6 +4,7 @@
 #include "Artigo.hpp"
 #include <string>
 
-Artigo parseCSVLine(const std::string& line);
+bool parseCSVLinha(const std::string& linha, Artigo& artigo_saida);
+void printArtigo(const Artigo& a);
 
 #endif

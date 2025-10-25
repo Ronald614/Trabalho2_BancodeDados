@@ -3,15 +3,15 @@
 
 #include <string>
 #include <vector>
-#include "GerenciaBlocos.hpp"
+#include "GerenciaBlocos.hpp" // Assumindo que você renomeou
 
 // As structs a seguir representam os nos e o cabeçalho do arquivo de indice.
 struct No
 {
     bool ehFolha;
     int numChaves;
-    long proximo;
-    long selfId;
+    long proximo; // Ponteiro para o próximo nó folha (lista ligada)
+    long selfId; // ID do bloco deste nó no arquivo
     std::vector<int> vetorChaves;       // vetor de chaves do nó atual
     std::vector<long> vetorApontadores; // filhos ou ponteiros para registros
     No(bool ehFolha = false) : ehFolha(ehFolha), numChaves(0), proximo(-1), selfId(-1) {}
@@ -28,7 +28,7 @@ struct cabecalho
     int numBlocos;
     long tamanhoBloco;
 };
-#pragma pack(pop) // Restaura o alinhamento padrão
+#pragma pack(pop) 
 
 class BPlusTreeInt
 {
@@ -56,7 +56,7 @@ private:
     void splitChild(No *parent, int childIndex);           // dividir filho (usado na insercao)
     void insertNonFull(No *No, int key, long dataPointer); // inserir em no nao cheio (usado na insercao)
     void printintree(No *No, int level);                   // imprimir arvore recursivamente (nao implementado)
-
+    
 public:
     // construtor e métodos públicos
     BPlusTreeInt(const std::string &nomeArquivo, size_t tamanhoBloco); // construtor

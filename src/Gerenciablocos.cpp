@@ -5,7 +5,7 @@
 
 //construtor
 GerenciaBlocos::GerenciaBlocos(const std::string& nomeArquivo, size_t tamanhoBloco)
-    : nomeArquivo(nomeArquivo), tamanhoBloco(tamanhoBloco) {
+    : nomeArquivo(nomeArquivo), tamanhoBloco(tamanhoBloco), blocos_lidos(0), blocos_escritos(0) {
     
     this->fileStream.open(this->nomeArquivo, std::ios::in | std::ios::out | std::ios::binary);  //tenta abrir para leitura e escrita
 
@@ -59,6 +59,9 @@ void GerenciaBlocos::lerBloco(long idBloco, char* buffer) {
     if (fileStream.fail() && !fileStream.eof()) {//se falhou mas nao e final de arquivo(falhar real)
         throw std::runtime_error("Erro ao ler o bloco " + std::to_string(tamanhoBloco) + " do arquivo.");
     }
+
+    blocos_lidos++;
+
 }
 
 // Escreve o conteúdo de um buffer em um bloco específico no disco.
@@ -76,6 +79,8 @@ void GerenciaBlocos::escreveBloco(long idBloco, const char* buffer) {
     // Garante que os dados sejam escritos no disco, cumprindo os requisitos de persistência.
     fileStream.flush();
 
+    blocos_escritos++;
+
 }
 
 
@@ -91,4 +96,12 @@ long GerenciaBlocos::getTamanhoArquivo() {
     long size = file.tellg();
     file.close();
     return size;
+}
+
+long GerenciaBlocos::getBlocosLidos() const {
+    return blocos_lidos;
+}
+
+long GerenciaBlocos::getBlocosEscritos() const {
+    return blocos_escritos;
 }
