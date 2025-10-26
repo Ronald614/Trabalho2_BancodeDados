@@ -36,8 +36,6 @@ size_t ArquivoHashEstatico::alocarNovoBucket() {
     
     bucket->proximo_bloco_overflow = -1;
     
-    gerenciador_dados.sincronizarBloco(novo_id);
-    
     return novo_id;
     
 }
@@ -87,8 +85,6 @@ size_t ArquivoHashEstatico::inserir(const Artigo& a) {
             bucket->registros[bucket->contador_registros] = a;
             bucket->contador_registros++;
             
-            gerenciador_dados.sincronizarBloco(id_bucket_atual); 
-            
             return id_bucket_atual; 
 
         }
@@ -103,14 +99,10 @@ size_t ArquivoHashEstatico::inserir(const Artigo& a) {
             
             bucket_atualizado->proximo_bloco_overflow = novo_id_overflow; 
             
-            gerenciador_dados.sincronizarBloco(id_bucket_atual);
-            
             BlocoDeDados* bucket_overflow = static_cast<BlocoDeDados*>(gerenciador_dados.getPonteiroBloco(novo_id_overflow));
             
             bucket_overflow->registros[bucket_overflow->contador_registros] = a;
             bucket_overflow->contador_registros++;
-            
-            gerenciador_dados.sincronizarBloco(novo_id_overflow); //
             
             return novo_id_overflow;
 

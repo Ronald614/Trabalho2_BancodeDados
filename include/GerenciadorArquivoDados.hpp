@@ -78,6 +78,11 @@ public:
      */
     void sincronizarArquivoInteiro();
 
+    /**
+     * @brief Força a escrita de todo o arquivo sem resetar os contadores.
+     */
+    void flushCheckpoint();
+
     // Métodos de Informação
 
     /**

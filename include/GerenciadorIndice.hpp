@@ -52,6 +52,11 @@ public:
      */
     void escreveBloco(long idBloco, const char* buffer);
 
+    /**
+     * @brief Força a escrita de todos os buffers pendentes para o disco.
+     */
+    void flush();
+
     // Métodos de Informação
 
     /**

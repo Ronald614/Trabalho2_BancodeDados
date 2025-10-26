@@ -76,8 +76,6 @@ void GerenciadorIndice::escreveBloco(long idBloco, const char* buffer) {
     if (fileStream.fail()) {
         throw std::runtime_error("Erro ao escrever no bloco " + std::to_string(idBloco) + " do arquivo.");
     }
-    // Garante que os dados sejam escritos no disco, cumprindo os requisitos de persistência.
-    fileStream.flush();
 
     blocos_escritos++;
 
@@ -104,4 +102,14 @@ long GerenciadorIndice::getBlocosLidos() const {
 
 long GerenciadorIndice::getBlocosEscritos() const {
     return blocos_escritos;
+}
+
+void GerenciadorIndice::flush() {
+
+    if (fileStream.is_open()) {
+    
+        fileStream.flush();
+    
+    }
+
 }

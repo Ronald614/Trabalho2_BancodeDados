@@ -166,6 +166,19 @@ int main(int argc, char* argv[]) {
                 }
                 
                 contador_linhas_processadas++;
+
+                if (contador_linhas_processadas % checkpoint_intervalo == 0) {
+                    
+                    std::cout << "  ... " << contador_linhas_processadas << " registros processados. Sincronizando (checkpoint)..." << std::endl;
+                    
+                    gerenciador_dados_hash.flushCheckpoint();
+                    
+                    btree_id.flush();
+                    btree_titulo.flush();
+                    
+                    std::cout << "  ... Sincronização concluída." << std::endl;
+                
+                }
                 
                 if (contador_linhas_processadas % 10000 == 0) {
                 

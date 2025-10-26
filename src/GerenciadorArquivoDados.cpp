@@ -247,3 +247,19 @@ void GerenciadorArquivoDados::sincronizarArquivoInteiro() {
     blocos_lidos = 0;
 
 }
+
+void GerenciadorArquivoDados::flushCheckpoint() {
+
+    std::cout << "[Gerenciador de Blocos] Sincronizando checkpoint..." << std::endl;
+    
+    if (mapa_memoria != nullptr && tamanho_total_arquivo > 0) {
+    
+        if (msync(mapa_memoria, tamanho_total_arquivo, MS_SYNC) == -1) {
+    
+            std::cerr << "[Gerenciador de Blocos] ERRO: msync falhou para o arquivo inteiro: " << std::string(std::strerror(errno)) << std::endl;
+    
+        }
+    
+    }
+
+}

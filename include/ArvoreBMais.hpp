@@ -406,6 +406,10 @@ public:
     long getIndexBlocosLidos() const { return gerenciador.getBlocosLidos(); }
     long getIndexBlocosEscritos() const { return gerenciador.getBlocosEscritos(); }
     long getIndexTotalBlocos() const { return totalBlocos; }
+
+    void flush() {
+        gerenciador.flush();
+    }
 };
 
 #endif
