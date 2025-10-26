@@ -18,28 +18,32 @@ UPLOAD_SRCS = \
 	$(SRCDIR)/OSInfo.cpp \
 	$(SRCDIR)/GerenciadorArquivoDados.cpp \
 	$(SRCDIR)/ArquivoHashEstatico.cpp \
-	$(SRCDIR)/GerenciadorIndice.cpp
+	$(SRCDIR)/GerenciadorIndice.cpp \
+	$(SRCDIR)/Log.cpp
 
 FINDREC_SRCS = \
 	$(SRCDIR)/findrec.cpp \
     $(SRCDIR)/OSInfo.cpp \
     $(SRCDIR)/Parser.cpp \
     $(SRCDIR)/GerenciadorArquivoDados.cpp \
-    $(SRCDIR)/ArquivoHashEstatico.cpp 
-			   
+    $(SRCDIR)/ArquivoHashEstatico.cpp \
+	$(SRCDIR)/Log.cpp
+
 SEEK1_SRCS = \
 	$(SRCDIR)/seek1.cpp \
     $(SRCDIR)/OSInfo.cpp \
     $(SRCDIR)/Parser.cpp \
     $(SRCDIR)/GerenciadorArquivoDados.cpp \
-	$(SRCDIR)/GerenciadorIndice.cpp
+	$(SRCDIR)/GerenciadorIndice.cpp \
+	$(SRCDIR)/Log.cpp
 
 SEEK2_SRCS = \
 	$(SRCDIR)/seek2.cpp \
 	$(SRCDIR)/OSInfo.cpp \
 	$(SRCDIR)/Parser.cpp \
 	$(SRCDIR)/GerenciadorArquivoDados.cpp \
-	$(SRCDIR)/GerenciadorIndice.cpp
+	$(SRCDIR)/GerenciadorIndice.cpp \
+	$(SRCDIR)/Log.cpp
 
 # --- Regras de Build Automáticas ---
 UPLOAD_OBJS = $(UPLOAD_SRCS:.cpp=.o)
