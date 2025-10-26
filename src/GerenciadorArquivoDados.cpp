@@ -8,8 +8,10 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string>
 
 #include "GerenciadorArquivoDados.hpp"
+#include "Log.hpp"
 
 GerenciadorArquivoDados::GerenciadorArquivoDados(const std::string& caminho, size_t tamanho)
     : caminho_arquivo(caminho),
@@ -70,7 +72,7 @@ GerenciadorArquivoDados::GerenciadorArquivoDados(const std::string& caminho, siz
         
         if (tamanho_total_arquivo % tamanho_bloco != 0) {
             
-            std::cerr << "[Gerenciador de Blocos] Tamanho do arquivo nao e multiplo do bloco. Ajustando..." << std::endl;
+            log_warn("Tamanho do arquivo nao e multiplo do bloco. Ajustando...");
             
             tamanho_total_arquivo = (tamanho_total_arquivo / tamanho_bloco + 1) * tamanho_bloco;
             
@@ -136,7 +138,7 @@ void GerenciadorArquivoDados::sincronizarBloco(size_t id_bloco) {
 
     if (offset >= tamanho_total_arquivo || mapa_memoria == nullptr) {
     
-        std::cerr << "[Gerenciador] Tentativa de Sincronizar bloco inválido: " << id_bloco << std::endl;
+        log_warn("Tentativa de Sincronizar bloco inválido: " + std::to_string(id_bloco));
         
         return;
     
@@ -147,7 +149,7 @@ void GerenciadorArquivoDados::sincronizarBloco(size_t id_bloco) {
     
     if (msync(endereco_bloco, tamanho_bloco, MS_SYNC) == -1) {
     
-        std::cerr << "[Gerenciador] msync falhou para o bloco " << id_bloco << ": " << std::string(std::strerror(errno)) << std::endl;
+        log_warn("msync falhou para o bloco " + std::to_string(id_bloco) + ": " + std::string(std::strerror(errno)));
     
     }
     
@@ -223,25 +225,27 @@ void GerenciadorArquivoDados::alocarBlocosEmMassa(size_t num_blocos) {
 
     tamanho_total_arquivo = novo_tamanho_total;
 
-    std::cout << "[Gerenciador de Blocos] " << num_blocos << " blocos alocados em massa (total: " << tamanho_total_arquivo << " bytes)." << std::endl;
+    log_debug(std::to_string(num_blocos) + " blocos alocados em massa (total: " + std::to_string(tamanho_total_arquivo) + " bytes).");
 
 }
 
+// Em GerenciadorArquivoDados.cpp
+
 void GerenciadorArquivoDados::sincronizarArquivoInteiro() {
-    
-    std::cout << "[Gerenciador de Blocos] Sincronizando arquivo inteiro..." << std::endl;
+
+    log_info("Sincronizando arquivo com o disco...");
 
     if (mapa_memoria != nullptr && tamanho_total_arquivo > 0) {
-
+        
         if (msync(mapa_memoria, tamanho_total_arquivo, MS_SYNC) == -1) {
-
-            std::cerr << "[Gerenciador de Blocos] ERRO: msync falhou para o arquivo inteiro: " << std::string(std::strerror(errno)) << std::endl;
+            
+            throw std::runtime_error("[Gerenciador de Blocos] ERRO: msync falhou para o arquivo inteiro: " + std::string(std::strerror(errno)));
         
         }
-    
+        
     }
     
-    std::cout << "[Gerenciador de Blocos] Sincronização concluída." << std::endl;
+    log_info("Sincronização concluída.");
     
     blocos_escritos = 0;
     blocos_lidos = 0;
@@ -249,17 +253,17 @@ void GerenciadorArquivoDados::sincronizarArquivoInteiro() {
 }
 
 void GerenciadorArquivoDados::flushCheckpoint() {
-
-    std::cout << "[Gerenciador de Blocos] Sincronizando checkpoint..." << std::endl;
+    
+    log_info("Sincronizando checkpoint..."); 
     
     if (mapa_memoria != nullptr && tamanho_total_arquivo > 0) {
-    
+
         if (msync(mapa_memoria, tamanho_total_arquivo, MS_SYNC) == -1) {
-    
-            std::cerr << "[Gerenciador de Blocos] ERRO: msync falhou para o arquivo inteiro: " << std::string(std::strerror(errno)) << std::endl;
-    
+
+            throw std::runtime_error("[Gerenciador de Blocos] ERRO: msync falhou para o checkpoint: " + std::string(std::strerror(errno)));
+
         }
-    
+
     }
 
 }

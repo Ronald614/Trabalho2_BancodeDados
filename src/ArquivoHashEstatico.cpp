@@ -1,8 +1,10 @@
 #include <stdexcept>
 #include <iostream>
 #include <cstring>
+#include <string>
 
 #include "ArquivoHashEstatico.hpp"
+#include "Log.hpp"
 
 ArquivoHashEstatico::ArquivoHashEstatico(GerenciadorArquivoDados& gm_dados, int num_buckets) : gerenciador_dados(gm_dados), NUM_BUCKETS_PRIMARIOS(num_buckets) {
     
@@ -44,13 +46,12 @@ void ArquivoHashEstatico::inicializar() {
     
     if (gerenciador_dados.obterNumeroTotalBlocos() == 0) {
         
-        std::cout << "[Hash Estático] Inicializando com " << NUM_BUCKETS_PRIMARIOS << " buckets primários..." << std::endl;
-        
+        log_info("Inicializando com " + std::to_string(NUM_BUCKETS_PRIMARIOS) + " buckets primários...");
+
         gerenciador_dados.alocarBlocosEmMassa(NUM_BUCKETS_PRIMARIOS);
 
-        std::cout << "[Hash Estático] Configurando ponteiros de overflow..." << std::endl;
+        log_info("Configurando ponteiros de overflow...");
         
-        // Configura os ponteiros overflow dos buckets.
         for (int i = 0; i < NUM_BUCKETS_PRIMARIOS; ++i) {
             
             BlocoDeDados* bucket = static_cast<BlocoDeDados*>(gerenciador_dados.getPonteiroBloco(i));
@@ -65,7 +66,7 @@ void ArquivoHashEstatico::inicializar() {
     
     else {
         
-        std::cout << "[Hash Estático] Arquivo de dados já inicializado." << std::endl;
+        log_info("Arquivo de dados já inicializado.");
     
     }
 

@@ -7,8 +7,10 @@
 #include <vector>
 #include <cstring>
 #include <set>
+#include <fstream>
 
 // Nossos módulos
+#include "Log.hpp"
 #include "Artigo.hpp"
 #include "Parser.hpp"
 #include "OSInfo.hpp"
@@ -29,16 +31,18 @@
 
 int main(int argc, char* argv[]) {
 
+    log_init();
+
     //#################################################################
     // 1. Verificação de entrada
     //#################################################################
 
     if (argc != 2) {
     
-        std::cerr << "Erro: Uso incorreto." << std::endl;
-        std::cerr << "Uso: " << argv[0] << " \"<Titulo a ser buscado>\"" << std::endl;
-        std::cerr << "Exemplo Docker: docker compose run --rm seek2 \"Um Titulo Exato\"" << std::endl;
-    
+        log_error("Uso incorreto.");
+        log_error("Uso: " + std::string(argv[0]) + " \"<Titulo a ser buscado>\"");
+        log_error("Exemplo Docker: docker compose run --rm seek2 \"Um Titulo Exato\"");
+
         return 1;
     
     }
@@ -46,7 +50,8 @@ int main(int argc, char* argv[]) {
     const std::string titulo_busca = argv[1];
     if (titulo_busca.length() > 299) {
 
-        std::cerr << "Erro: Título muito longo. Máximo de 299 caracteres." << std::endl;
+        log_error("Erro: Título muito longo. Máximo de 299 caracteres.");
+        
         return 1;
     
     }
@@ -58,31 +63,50 @@ int main(int argc, char* argv[]) {
     const std::string diretorio_hash_dados = dataDir + "/artigos.dat";
     const std::string btreeTituloPath = dataDir + "/btree_titulo.idx";
 
-    std::cout << "--- Iniciando Busca (seek2) ---" << std::endl;
-    std::cout << "Buscando Título: \"" << titulo_busca << "\"" << std::endl;
-    std::cout << "Usando Índice Secundário (B+Tree): " << btreeTituloPath << std::endl;
-    std::cout << "Lendo de Arquivo de Dados (Hash): " << diretorio_hash_dados << std::endl;
+    log_info("--- Iniciando Busca (seek2) ---");
+    log_info("Buscando Título: \"" + titulo_busca + "\"");
+    log_info("Usando Índice Secundário (B+Tree): " + btreeTituloPath);
+    log_info("Lendo de Arquivo de Dados (Hash): " + diretorio_hash_dados);
 
     //#################################################################
     // 3. Configuração dos Gerenciadores
     //#################################################################
 
-    int tamanho_bloco_os = obter_tamanho_bloco_fs("/data"); 
+    const std::string metaDir = dataDir + "/db.meta";
+    size_t TAMANHO_BLOCO_LOGICO_DADOS = 0;
+    size_t TAMANHO_BLOCO_BTREE = 0;
+
+    std::ifstream meta_info(metaDir, std::ios::binary);
     
-    if (tamanho_bloco_os <= 0) {
-        
-        tamanho_bloco_os = 4096;
+    if (!meta_info.is_open()) {
+    
+        log_error("Falha fatal ao ler arquivo de metadados: " + metaDir);
+    
+        log_error("Execute o 'upload' primeiro para criar os arquivos de banco de dados.");
+
+        return 1;
     
     }
 
-    const size_t TAMANHO_BRUTO_BUCKET = sizeof(BlocoDeDados);
-    const size_t TAMANHO_BLOCO_LOGICO_DADOS = calcular_bloco_logico(TAMANHO_BRUTO_BUCKET, tamanho_bloco_os);    
-    size_t TAMANHO_BLOCO_BTREE = 4096;
+    meta_info.read(reinterpret_cast<char*>(&TAMANHO_BLOCO_LOGICO_DADOS), sizeof(size_t));
+    meta_info.read(reinterpret_cast<char*>(&TAMANHO_BLOCO_BTREE), sizeof(size_t));
+
+    meta_info.close();
+
+    if (TAMANHO_BLOCO_LOGICO_DADOS == 0 || TAMANHO_BLOCO_BTREE == 0) {
+        
+        log_error("Arquivo de metadados inválido ou corrompido: " + metaDir);
+    
+        return 1;
+    
+    }
+
+    log_debug("Tamanho do Bloco de Dados lido de .meta: " + std::to_string(TAMANHO_BLOCO_LOGICO_DADOS));
+    log_debug("Tamanho do Bloco de Índice lido de .meta: " + std::to_string(TAMANHO_BLOCO_BTREE));
 
     std::vector<Artigo> resultados;
     long blocos_lidos_indice = 0;
     long total_blocos_indice = 0;
-    long blocos_lidos_dados = 0;
     long duration_ms = 0;
 
     //#################################################################
@@ -132,11 +156,12 @@ int main(int argc, char* argv[]) {
         // Estatísticas
         blocos_lidos_indice = btree_titulo.getIndexBlocosLidos();
         total_blocos_indice = btree_titulo.getIndexTotalBlocos();
-        blocos_lidos_dados = gerenciador_dados_hash.obterBlocosLidos();
+        
+    }
+    
+    catch (const std::exception& e) {
 
-    } catch (const std::exception& e) {
-
-        std::cerr << "Erro Fatal durante a busca: " << e.what() << std::endl;
+        log_error("Erro Fatal durante a busca: " + std::string(e.what()));
         
         return 1;
     
@@ -148,31 +173,27 @@ int main(int argc, char* argv[]) {
 
     if (!resultados.empty()) {
     
-        std::cout << "\n--- " << resultados.size() << " Registro(s) Encontrado(s) ---" << std::endl;
+        log_info("--- " + std::to_string(resultados.size()) + " Registro(s) Encontrado(s) ---");
     
         for (const auto& artigo : resultados) {
     
             printArtigo(artigo);
     
         }
-
+    
     }
     
     else {
-        
-        std::cout << "\n--- Nenhum registro com o Título \"" << titulo_busca << "\" foi encontrado. ---" << std::endl;
+    
+        log_info("--- Nenhum registro com o Título \"" + titulo_busca + "\" foi encontrado. ---");
     
     }
 
-    std::cout << "\n--- Estatísticas da Operação (seek2) ---" << std::endl;
-    std::cout << "Tempo total de execução: " << duration_ms << " ms" << std::endl;
-    std::cout << "------------------------------------" << std::endl;
-    std::cout << "Arquivo de Índice Secundário (" << btreeTituloPath << "):" << std::endl;
-    std::cout << "  - Blocos lidos: " << blocos_lidos_indice << std::endl;
-    std::cout << "  - Total de blocos: " << total_blocos_indice << std::endl;
-    std::cout << "------------------------------------" << std::endl;
-    std::cout << "Arquivo de Dados (" << diretorio_hash_dados << "):" << std::endl;
-    std::cout << "  - Blocos lidos: " << blocos_lidos_dados << std::endl;
+    log_info("\n--- Estatísticas da Operação (seek2) ---");
+    log_info("Tempo total de execução: " + std::to_string(duration_ms) + " ms");
+    log_info("Arquivo de Índice Secundário: " + btreeTituloPath);
+    log_info("  - Blocos lidos (Índice): " + std::to_string(blocos_lidos_indice));
+    log_info("  - Total de blocos (Índice): " + std::to_string(total_blocos_indice));
 
     return 0;
 

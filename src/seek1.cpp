@@ -8,6 +8,7 @@
 #include <fstream>
 
 // Nossos módulos
+#include "Log.hpp"
 #include "Artigo.hpp"
 #include "Parser.hpp"
 #include "OSInfo.hpp"
@@ -27,15 +28,17 @@
 
 int main(int argc, char* argv[]) {
 
+    log_init();
+
     //#################################################################
     // 1. Verificação de entrada
     //#################################################################
     if (argc != 2) {
 
-        std::cerr << "Erro: Uso incorreto." << std::endl;
-        std::cerr << "Uso: " << argv[0] << " <ID>" << std::endl;
-        std::cerr << "Exemplo Docker: docker compose run --rm seek1 12345" << std::endl;
-        
+        log_error("Uso incorreto.");
+        log_error("Uso: " + std::string(argv[0]) + " <ID>");
+        log_error("Exemplo Docker: docker compose run --rm seek1 12345");
+
         return 1;
     
     }
@@ -50,7 +53,7 @@ int main(int argc, char* argv[]) {
     
     catch (const std::exception& e) {
         
-        std::cerr << "Erro: ID '" << argv[1] << "' inválido. Deve ser um número inteiro." << std::endl;
+        log_error("ID '" + std::string(argv[1]) + "' inválido. Deve ser um número inteiro.");
         
         return 1;
     
@@ -64,35 +67,50 @@ int main(int argc, char* argv[]) {
     const std::string diretorio_hash_dados = dataDir + "/artigos.dat";
     const std::string btreeIdPath = dataDir + "/btree_id.idx";
 
-    std::cout << "--- Iniciando Busca (seek1) ---" << std::endl;
-    std::cout << "Buscando ID: " << id_busca << std::endl;
-    std::cout << "Usando Índice Primário (B+Tree): " << btreeIdPath << std::endl;
-    std::cout << "Lendo de Arquivo de Dados (Hash): " << diretorio_hash_dados << std::endl;
+    log_info("--- Iniciando Busca (seek1) ---");
+    log_info("Buscando ID: " + std::to_string(id_busca));
+    log_info("Usando Índice Primário (B+Tree): " + btreeIdPath);
+    log_info("Lendo de Arquivo de Dados (Hash): " + diretorio_hash_dados);
 
     //#################################################################
     // 3. Configuração dos Gerenciadores
     //#################################################################
 
-    int tamanho_bloco_os = obter_tamanho_bloco_fs("/data"); 
+    const std::string metaDir = dataDir + "/db.meta";
+    size_t TAMANHO_BLOCO_LOGICO_DADOS = 0;
+    size_t TAMANHO_BLOCO_BTREE = 0;
+
+    std::ifstream meta_info(metaDir, std::ios::binary);
     
-    if (tamanho_bloco_os <= 0) {
-        
-        tamanho_bloco_os = 4096;
+    if (!meta_info.is_open()) {
+    
+        log_error("Falha fatal ao ler arquivo de metadados: " + metaDir);
+    
+        log_error("Execute o 'upload' primeiro para criar os arquivos de banco de dados.");
+
+        return 1;
     
     }
 
-    const size_t TAMANHO_BRUTO_BUCKET = sizeof(BlocoDeDados);
-    const size_t TAMANHO_BLOCO_LOGICO_DADOS = calcular_bloco_logico(TAMANHO_BRUTO_BUCKET, tamanho_bloco_os);
+    meta_info.read(reinterpret_cast<char*>(&TAMANHO_BLOCO_LOGICO_DADOS), sizeof(size_t));
+    meta_info.read(reinterpret_cast<char*>(&TAMANHO_BLOCO_BTREE), sizeof(size_t));
+
+    meta_info.close();
+
+    if (TAMANHO_BLOCO_LOGICO_DADOS == 0 || TAMANHO_BLOCO_BTREE == 0) {
+        
+        log_error("Arquivo de metadados inválido ou corrompido: " + metaDir);
     
-    size_t TAMANHO_BLOCO_BTREE = 4096;
+        return 1;
     
-    std::cout << "Usando Bloco Lógico de Dados: " << TAMANHO_BLOCO_LOGICO_DADOS << " bytes." << std::endl;
-    std::cout << "Usando Bloco de Índice: " << TAMANHO_BLOCO_BTREE << " bytes." << std::endl;
+    }
+
+    log_debug("Tamanho do Bloco de Dados lido de .meta: " + std::to_string(TAMANHO_BLOCO_LOGICO_DADOS));
+    log_debug("Tamanho do Bloco de Índice lido de .meta: " + std::to_string(TAMANHO_BLOCO_BTREE));
 
     std::optional<Artigo> resultado;
     long blocos_lidos_indice = 0;
     long total_blocos_indice = 0;
-    long blocos_lidos_dados = 0;
     long duration_ms = 0;
 
     //#################################################################
@@ -139,8 +157,7 @@ int main(int argc, char* argv[]) {
         
         blocos_lidos_indice = btree_id.getIndexBlocosLidos();
         total_blocos_indice = btree_id.getIndexTotalBlocos();
-        blocos_lidos_dados = gerenciador_dados_hash.obterBlocosLidos();
-
+        
     }
     
     catch (const std::exception& e) {
@@ -156,28 +173,26 @@ int main(int argc, char* argv[]) {
     //#################################################################
 
     if (resultado) {
-
-        std::cout << "\n--- Registro Encontrado ---" << std::endl;
+    
+        log_info("--- Registro Encontrado ---");
+    
         printArtigo(resultado.value());
-
+    
     }
     
     else {
-
-        std::cout << "\n--- Registro com ID " << id_busca << " não encontrado. ---" << std::endl;
+    
+        log_info("--- Registro com ID " + std::to_string(id_busca) + " não encontrado. ---");
     
     }
 
-    std::cout << "\n--- Estatísticas da Operação (seek1) ---" << std::endl;
-    std::cout << "Tempo total de execução: " << duration_ms << " ms" << std::endl;
-    std::cout << "------------------------------------" << std::endl;
-    std::cout << "Arquivo de Índice Primário (" << btreeIdPath << "):" << std::endl;
-    std::cout << "  - Blocos lidos: " << blocos_lidos_indice << std::endl;
-    std::cout << "  - Total de blocos: " << total_blocos_indice << std::endl;
-    std::cout << "------------------------------------" << std::endl;
-    std::cout << "Arquivo de Dados (" << diretorio_hash_dados << "):" << std::endl;
-    std::cout << "  - Blocos lidos: " << blocos_lidos_dados << std::endl;
-
+    log_info("\n--- Estatísticas da Operação (seek1) ---");
+    log_info("Tempo total de execução: " + std::to_string(duration_ms) + " ms");
+    log_info("Arquivo de Índice Primário: " + btreeIdPath);
+    
+    log_info("  - Blocos lidos (Índice): " + std::to_string(blocos_lidos_indice));
+    log_info("  - Total de blocos (Índice): " + std::to_string(total_blocos_indice));
+    
     return 0;
 
 }

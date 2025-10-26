@@ -6,12 +6,12 @@
 #include <stdexcept>
 #include <algorithm>
 
+#include "Log.hpp"
 #include "Parser.hpp"
 
 void printArtigo(const Artigo& artigo) {
 
     std::cout << "-------------------------------------\n";
-    std::cout << "---> Imprimindo artigo.\n";
 
     std::cout << "ID: " << artigo.id << "\n";
     std::cout << "Ano: " << artigo.ano << "\n";
@@ -143,8 +143,8 @@ bool parseCSVLinha(const std::string& linha, Artigo& artigo_saida) {
 
     if (campos.size() != 7) {
         
-        std::cout << "[Parser] Linha ignorada (mal formatada, campos != 7): " << linha << std::endl;
-        
+        log_warn("[Parser] Linha ignorada (mal formatada, campos != 7): " + linha);
+
         return false;
     
     }
@@ -158,7 +158,7 @@ bool parseCSVLinha(const std::string& linha, Artigo& artigo_saida) {
         
         if (artigo_saida.id == 0) {
             
-            std::cout << "[Parser] Linha ignorada (ID invalido ou zero): " << linha << std::endl;
+            log_warn("[Parser] Linha ignorada (ID invalido ou zero): " + linha);
             
             return false;
         
@@ -180,7 +180,7 @@ bool parseCSVLinha(const std::string& linha, Artigo& artigo_saida) {
     
     catch (const std::exception& e) {
         
-        std::cerr << "[Parser] Erro inesperado ao atribuir campos: " << e.what() << std::endl;
+        log_warn("[Parser] Erro inesperado ao atribuir campos: " + std::string(e.what()));
         
         return false;
     

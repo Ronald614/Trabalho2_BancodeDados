@@ -1,5 +1,9 @@
 #include "OSInfo.hpp"
 #include <cmath>
+#include <string>
+#include <cstring>
+#include <cerrno>
+#include "Log.hpp"
 
 /**
  * @brief Obtém o tamanho do bloco nativo do sistema de arquivos (via statvfs).
@@ -20,8 +24,8 @@ int obter_tamanho_bloco_fs(const char* path) {
     
     else {
 
-        std::cerr << "Erro ao chamar statvfs para " << path << ": " << std::strerror(errno) << std::endl;
-
+        log_error("Erro ao chamar statvfs para " + std::string(path) + ": " + std::strerror(errno));
+        
         return -1;
 
     }
@@ -40,7 +44,7 @@ size_t calcular_bloco_logico(size_t tamanho_bruto_struct, int tamanho_bloco_so) 
     
     if (tamanho_bloco_so <= 0) {
     
-        std::cerr << "[OSInfo] Tamanho de bloco do SO inválido, usando 4096." << std::endl;
+        log_warn("[OSInfo] Tamanho de bloco do SO inválido, usando 4096.");
     
         tamanho_bloco_so = 4096;
     
