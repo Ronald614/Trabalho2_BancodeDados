@@ -104,6 +104,19 @@ int main(int argc, char* argv[]) {
     log_debug("Tamanho Bruto do Bucket (sizeof(BlocoDeDados)): " + std::to_string(TAMANHO_BRUTO_BUCKET) + " bytes.");
     log_debug("Tamanho Lógico do Bloco de Dados Hash (arredondado): " + std::to_string(TAMANHO_BLOCO_LOGICO_DADOS) + " bytes.");
 
+    try {
+    
+        std::filesystem::create_directories(dataDir);
+    
+    } 
+    
+    catch (const std::filesystem::filesystem_error& e) {
+    
+        log_error("Falha fatal ao criar diretório " + dataDir + ": " + std::string(e.what()));
+    
+        return 1;
+    
+    }
     
     log_info("Salvando metadados de bloco em: " + metaDir);
 
@@ -116,7 +129,7 @@ int main(int argc, char* argv[]) {
     
     }
     
-    // Salva o tamanho do bloco de dados e de indice
+    // Salva o tamanho do bloco de dados e de indice usado no upload
     meta_dados.write(reinterpret_cast<const char*>(&TAMANHO_BLOCO_LOGICO_DADOS), sizeof(size_t));
     meta_dados.write(reinterpret_cast<const char*>(&TAMANHO_BLOCO_BTREE), sizeof(size_t));
     
