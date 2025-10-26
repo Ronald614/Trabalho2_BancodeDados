@@ -4,12 +4,12 @@
 #include "Artigo.hpp"
 #include <cstddef>
 
-const size_t CAPACIDADE_BUCKET = 10;
+const size_t CAPACIDADE_BUCKET = 2;
 
 struct BlocoDeDados {
 
-    int profundidade_local;
     size_t contador_registros;
+    long proximo_bloco_overflow;
     Artigo registros[CAPACIDADE_BUCKET];
 
 };
@@ -25,6 +25,7 @@ inline size_t calcular_bloco_logico(size_t tamanho_bruto_bucket, size_t tamanho_
     size_t num_blocos_so = (tamanho_bruto_bucket + tamanho_bloco_so - 1) / tamanho_bloco_so;
     
     return num_blocos_so * tamanho_bloco_so;
+    
 }
 
 #endif

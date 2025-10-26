@@ -1,4 +1,3 @@
-#include "Parser.hpp"
 #include <sstream>
 #include <string>
 #include <vector>
@@ -7,14 +6,7 @@
 #include <stdexcept>
 #include <algorithm>
 
-//##################################################################################################################################
-// FUNÇÕES AUXILIARES
-//##################################################################################################################################
-
-/**
- * @brief Imprime o conteúdo de um struct Artigo de forma legível.
- * @param artigo O struct Artigo a ser impresso.
- */
+#include "Parser.hpp"
 
 void printArtigo(const Artigo& artigo) {
 
@@ -90,18 +82,6 @@ std::string limpaCampo(const std::string& campo_bruto) {
 
 }
 
-/**
- * @brief Divide uma linha CSV em 7 campos.
- * Lida com delimitadores (;) dentro de aspas.
- * Para de dividir após o 6º delimitador real.
- * 
- * @param linha A linha de texto completa do CSV.
- * 
- * @return Um vetor de strings contendo os campos brutos ainda com aspas.
- * Retorna exatamente 7 campos se for bem-sucedido.
- * Retorna < 7 campos se a linha for mal formatada.
- */
-
 std::vector<std::string> divideCSVLinha(const std::string& linha) {
     
     std::vector<std::string> campos;
@@ -151,21 +131,6 @@ std::vector<std::string> divideCSVLinha(const std::string& linha) {
     return campos;
 
 }
-
-
-//##################################################################################################################################
-// Função de parsing.
-//##################################################################################################################################
-
-/**
- * @brief Faz o parsing de uma linha CSV, usando o split de máquina de estados.
- * 
- * @param linha A linha de texto completa do CSV.
- * 
- * @param[out] artigo_saida Um ponteiro para uma struct Artigo a ser preenchida.
- * 
- * @return true se o parsing foi bem-sucedido, false caso contrário.
- */
 
 bool parseCSVLinha(const std::string& linha, Artigo& artigo_saida) {
     

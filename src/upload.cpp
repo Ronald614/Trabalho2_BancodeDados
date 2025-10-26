@@ -1,24 +1,25 @@
-// Módulos C++.
+// Módulos C++
 #include <iostream>
 #include <string>
 #include <fstream>
 #include <chrono>
 #include <vector>
+#include <filesystem>
 
-// Módulos feitos.
+// Nossos módulos
+#include "config.hpp"
 #include "Parser.hpp"
 #include "OSInfo.hpp"
-#include "gerenciador_de_blocos.hpp"
-#include "hash_extensivel.hpp"
-#include "bloco_de_dados.hpp" 
-#include "Arvorebmais.hpp"
-#include "GerenciaBlocos.hpp"
+#include "GerenciadorArquivoDados.hpp"
+#include "BlocoDeDados.hpp"
+#include "ArquivoHashEstatico.hpp"
+#include "ArvoreBMais.hpp"
 
 int main(int argc, char* argv[]) {
 
-    //##################################################################################################################################
+    //#################################################################
     // 1. Verificação de entrada.
-    //##################################################################################################################################
+    //#################################################################
     
     if (argc != 2) {
     
@@ -30,22 +31,21 @@ int main(int argc, char* argv[]) {
     
     }
 
-    //##################################################################################################################################
+    //#################################################################
     // 2. Definição dos caminhos dos arquivos de dados.
-    //##################################################################################################################################
+    //#################################################################
 
     std::string nome_arquivo = argv[1];
     std::string diretorio_csv = "/data/" + nome_arquivo;
 
     const std::string dataDir = "/data/db"; 
     const std::string diretorio_hash = dataDir + "/artigos.dat";
-    const std::string diretorio_hash_dir = dataDir + "/hash_dir.dat";
     const std::string btreeIdPath = dataDir + "/btree_id.idx";
     const std::string btreeTituloPath = dataDir + "/btree_titulo.idx";
 
-    //##################################################################################################################################
+    //#################################################################
     // 3. Iniciar medição de tempo e logs.
-    //##################################################################################################################################
+    //#################################################################
     
     auto startTime = std::chrono::high_resolution_clock::now();
     
@@ -55,10 +55,29 @@ int main(int argc, char* argv[]) {
     std::cout << "  - Dados (Hash): " << diretorio_hash << std::endl;
     std::cout << "  - Índice Primário (B+Tree ID): " << btreeIdPath << std::endl;
     std::cout << "  - Índice Secundário (B+Tree Título): " << btreeTituloPath << std::endl;
+    
+    if (std::filesystem::exists(diretorio_hash) || std::filesystem::exists(btreeIdPath) || std::filesystem::exists(btreeTituloPath)) {
+        std::cout << "\nIniciando limpeza de arquivos de banco de dados antigos..." << std::endl;
+        
+        try {
+            
+            std::filesystem::remove(diretorio_hash);
+            std::filesystem::remove(btreeIdPath);
+            std::filesystem::remove(btreeTituloPath);
+            
+            std::cout << "Arquivos anteriores removidos com sucesso." << std::endl;
 
-    //##################################################################################################################################
+        } 
+        
+        catch (const std::filesystem::filesystem_error& e) {
+            
+            std::cerr << "[Upload] Nao foi possivel remover arquivos antigos. " << "O programa tentara sobrescreve-los. Erro: " << e.what() << std::endl;
+        }
+    }
+
+    //#################################################################
     // 4. Obter informações do sistema e calcular tamanhos de bloco.
-    //##################################################################################################################################
+    //#################################################################
 
     int tamanho_bloco_os = obter_tamanho_bloco_fs("/data"); 
     
@@ -72,36 +91,34 @@ int main(int argc, char* argv[]) {
     
     const size_t TAMANHO_BRUTO_BUCKET = sizeof(BlocoDeDados);
     const size_t TAMANHO_BLOCO_LOGICO_DADOS = calcular_bloco_logico(TAMANHO_BRUTO_BUCKET, tamanho_bloco_os);
-    const size_t TAMANHO_BLOCO_BTREE = 4096;
-    
+
     // Logs
     std::cout << "Tamanho do bloco do S.O. em /data: " << tamanho_bloco_os << " bytes." << std::endl;
     std::cout << "Tamanho de cada registro (sizeof(Artigo)): " << sizeof(Artigo) << " bytes." << std::endl;
     std::cout << "Registros por Bloco Lógico (definido): " << CAPACIDADE_BUCKET << std::endl;
     std::cout << "Tamanho Bruto do Bucket (sizeof(BlocoDeDados)): " << TAMANHO_BRUTO_BUCKET << " bytes." << std::endl;
     std::cout << "Tamanho Lógico do Bloco de Dados Hash (arredondado): " << TAMANHO_BLOCO_LOGICO_DADOS << " bytes." << std::endl;
-    std::cout << "Tamanho do Bloco para B+Tree ID: " << TAMANHO_BLOCO_BTREE << " bytes." << std::endl;
 
-
-    //##################################################################################################################################
+    //#################################################################
     // 5. Inicializar Gerenciadores de Arquivos e Estruturas de Dados.
-    //##################################################################################################################################
+    //#################################################################
 
     try {
 
-        GerenciadorDeBlocos gerenciador_dados_hash(diretorio_hash, TAMANHO_BLOCO_LOGICO_DADOS);
-        GerenciadorDeBlocos gerenciador_dir_hash(diretorio_hash_dir, tamanho_bloco_os);
-
-        GerenciaBlocos gerenciador_btree_id(btreeIdPath, TAMANHO_BLOCO_BTREE);
-        BPlusTreeInt btree_id(btreeIdPath, TAMANHO_BLOCO_BTREE);
-
-        ArquivoHashExtensivel arquivo_hash(gerenciador_dados_hash, gerenciador_dir_hash, btree_id);
+        GerenciadorArquivoDados gerenciador_dados_hash(diretorio_hash, TAMANHO_BLOCO_LOGICO_DADOS);
+        ArquivoHashEstatico arquivo_hash(gerenciador_dados_hash, NUM_BUCKETS_PRIMARIOS);
 
         arquivo_hash.inicializar();
 
-    //##################################################################################################################################
+        std::cout << "Inicializando Índice Primário (B+Tree ID)..." << std::endl;
+        BPlusTree<int> btree_id(btreeIdPath, static_cast<size_t>(tamanho_bloco_os));
+
+        std::cout << "Inicializando Índice Secundário (B+Tree Título)..." << std::endl;
+        BPlusTree<ChaveTitulo> btree_titulo(btreeTituloPath, static_cast<size_t>(tamanho_bloco_os));
+
+    //#################################################################
     // 6. Abrir e processar o arquivo CSV.
-    //##################################################################################################################################
+    //#################################################################
     
         std::ifstream arquivo_entrada(diretorio_csv);
         
@@ -132,7 +149,13 @@ int main(int argc, char* argv[]) {
             
                 try {
 
-                    arquivo_hash.inserir(artigo); 
+                    size_t id_bloco_inserido = arquivo_hash.inserir(artigo);
+                    btree_id.insert(artigo.id, id_bloco_inserido);
+
+                    ChaveTitulo chave_titulo;
+                    strncpy(chave_titulo.titulo, artigo.titulo, 300);
+                    
+                    btree_titulo.insert(chave_titulo, id_bloco_inserido);
 
                 }
                 
@@ -149,6 +172,7 @@ int main(int argc, char* argv[]) {
                     std::cout << "  ... " << contador_linhas_processadas << " registros processados." << std::endl;
                 
                 }
+                
             }
             
             else {
@@ -163,9 +187,9 @@ int main(int argc, char* argv[]) {
         
         std::cout << "Leitura do CSV concluída." << std::endl;
 
-    //##################################################################################################################################
+    //#################################################################
     // 9. Finalizar medição e imprimir relatório.
-    //##################################################################################################################################
+    //#################################################################
     
         auto endTime = std::chrono::high_resolution_clock::now();
         long duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
@@ -175,21 +199,28 @@ int main(int argc, char* argv[]) {
         std::cout << "Total de registros processados (inseridos): " << contador_linhas_processadas << std::endl;
         std::cout << "Total de linhas ignoradas (mal formatadas): " << contador_linhas_ignoradas << std::endl;
         
-    //##################################################################################################################################
+    //#################################################################
     // 10. Imprimir estatísticas de blocos.
-    //##################################################################################################################################
+    //#################################################################
     
         std::cout << "\nEstatísticas de I/O (Hash - Dados):" << std::endl;
         std::cout << "  - Blocos lidos: " << gerenciador_dados_hash.obterBlocosLidos() << std::endl;
         std::cout << "  - Blocos escritos: " << gerenciador_dados_hash.obterBlocosEscritos() << std::endl;
         std::cout << "  - Total de blocos no arquivo: " << gerenciador_dados_hash.obterNumeroTotalBlocos() << std::endl;
 
-        std::cout << "Estatísticas de I/O (Hash - Diretório):" << std::endl;
-        std::cout << "  - Blocos lidos: " << gerenciador_dir_hash.obterBlocosLidos() << std::endl;
-        std::cout << "  - Blocos escritos: " << gerenciador_dir_hash.obterBlocosEscritos() << std::endl;
-        std::cout << "  - Total de blocos no arquivo: " << gerenciador_dir_hash.obterNumeroTotalBlocos() << std::endl;
+        std::cout << "\nEstatísticas de I/O (B+Tree - ID):" << std::endl;
+        std::cout << "  - Blocos lidos: " << btree_id.getIndexBlocosLidos() << std::endl;
+        std::cout << "  - Blocos escritos: " << btree_id.getIndexBlocosEscritos() << std::endl;
+        std::cout << "  - Total de blocos no arquivo: " << btree_id.getIndexTotalBlocos() << std::endl;
 
-    } catch (const std::exception& e) {
+        std::cout << "\nEstatísticas de I/O (B+Tree - Título):" << std::endl;
+        std::cout << "  - Blocos lidos: " << btree_titulo.getIndexBlocosLidos() << std::endl;
+        std::cout << "  - Blocos escritos: " << btree_titulo.getIndexBlocosEscritos() << std::endl;
+        std::cout << "  - Total de blocos no arquivo: " << btree_titulo.getIndexTotalBlocos() << std::endl;
+
+    } 
+    
+    catch (const std::exception& e) {
         
         std::cerr << "\nErro Fatal durante a inicialização ou processamento: " << e.what() << std::endl;
         
@@ -200,4 +231,3 @@ int main(int argc, char* argv[]) {
     return 0;
 
 }
-

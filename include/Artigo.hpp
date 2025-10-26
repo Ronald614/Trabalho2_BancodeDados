@@ -4,7 +4,10 @@
 #include <string>
 #include <vector>
 
-//Estrutura dos artigos no arquivo CSV
+/**
+ * @struct Artigo
+ * @brief Representa um registro de dados de artigo científico com campos fixos para persistência em disco.
+ */
 struct Artigo {
 
     int id;

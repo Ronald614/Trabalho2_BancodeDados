@@ -11,10 +11,35 @@ BINDIR = bin
 
 # --- Definição dos Programas e seus Arquivos Fonte ---
 PROGRAMS = upload findrec seek1 seek2
-UPLOAD_SRCS = $(SRCDIR)/upload.cpp $(SRCDIR)/OSInfo.cpp $(SRCDIR)/Parser.cpp $(SRCDIR)/gerenciador_de_blocos.cpp $(SRCDIR)/hash_extensivel.cpp $(SRCDIR)/Gerenciablocos.cpp $(SRCDIR)/ArvoreBMaisInt.cpp
-FINDREC_SRCS = $(SRCDIR)/findrec.cpp $(SRCDIR)/OSInfo.cpp $(SRCDIR)/Parser.cpp $(SRCDIR)/gerenciador_de_blocos.cpp $(SRCDIR)/hash_extensivel.cpp $(SRCDIR)/Gerenciablocos.cpp $(SRCDIR)/ArvoreBMaisInt.cpp
-SEEK1_SRCS = $(SRCDIR)/seek1.cpp $(SRCDIR)/OSInfo.cpp $(SRCDIR)/Parser.cpp $(SRCDIR)/gerenciador_de_blocos.cpp $(SRCDIR)/hash_extensivel.cpp $(SRCDIR)/Gerenciablocos.cpp $(SRCDIR)/ArvoreBMaisInt.cpp
-SEEK2_SRCS = $(SRCDIR)/seek2.cpp $(SRCDIR)/OSInfo.cpp $(SRCDIR)/Parser.cpp $(SRCDIR)/gerenciador_de_blocos.cpp $(SRCDIR)/hash_extensivel.cpp $(SRCDIR)/Gerenciablocos.cpp $(SRCDIR)/ArvoreBMaisTitulo.cpp
+
+UPLOAD_SRCS = \
+	$(SRCDIR)/upload.cpp \
+	$(SRCDIR)/Parser.cpp \
+	$(SRCDIR)/OSInfo.cpp \
+	$(SRCDIR)/GerenciadorArquivoDados.cpp \
+	$(SRCDIR)/ArquivoHashEstatico.cpp \
+	$(SRCDIR)/GerenciadorIndice.cpp
+
+FINDREC_SRCS = \
+	$(SRCDIR)/findrec.cpp \
+    $(SRCDIR)/OSInfo.cpp \
+    $(SRCDIR)/Parser.cpp \
+    $(SRCDIR)/GerenciadorArquivoDados.cpp \
+    $(SRCDIR)/ArquivoHashEstatico.cpp 
+			   
+SEEK1_SRCS = \
+	$(SRCDIR)/seek1.cpp \
+    $(SRCDIR)/OSInfo.cpp \
+    $(SRCDIR)/Parser.cpp \
+    $(SRCDIR)/GerenciadorArquivoDados.cpp \
+	$(SRCDIR)/GerenciadorIndice.cpp
+
+SEEK2_SRCS = \
+	$(SRCDIR)/seek2.cpp \
+	$(SRCDIR)/OSInfo.cpp \
+	$(SRCDIR)/Parser.cpp \
+	$(SRCDIR)/GerenciadorArquivoDados.cpp \
+	$(SRCDIR)/GerenciadorIndice.cpp
 
 # --- Regras de Build Automáticas ---
 UPLOAD_OBJS = $(UPLOAD_SRCS:.cpp=.o)

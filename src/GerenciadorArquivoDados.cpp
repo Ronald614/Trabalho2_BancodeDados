@@ -1,18 +1,17 @@
-#include "gerenciador_de_blocos.hpp"
 #include <iostream>
 #include <stdexcept>
 #include <cstring>
 #include <cerrno>
 #include <filesystem>
-
-// Includes para mmap e gerenciamento de arquivos.
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
 
-GerenciadorDeBlocos::GerenciadorDeBlocos(const std::string& caminho, size_t tamanho)
+#include "GerenciadorArquivoDados.hpp"
+
+GerenciadorArquivoDados::GerenciadorArquivoDados(const std::string& caminho, size_t tamanho)
     : caminho_arquivo(caminho),
       arquivo_fd(-1),
       tamanho_bloco(tamanho),
@@ -97,7 +96,7 @@ GerenciadorDeBlocos::GerenciadorDeBlocos(const std::string& caminho, size_t tama
 
 }
 
-GerenciadorDeBlocos::~GerenciadorDeBlocos() {
+GerenciadorArquivoDados::~GerenciadorArquivoDados() {
 
     if (mapa_memoria != nullptr) {
         
@@ -115,7 +114,7 @@ GerenciadorDeBlocos::~GerenciadorDeBlocos() {
 
 }
 
-void* GerenciadorDeBlocos::getPonteiroBloco(size_t id_bloco) {
+void* GerenciadorArquivoDados::getPonteiroBloco(size_t id_bloco) {
     
     size_t offset = id_bloco * tamanho_bloco;
 
@@ -131,66 +130,120 @@ void* GerenciadorDeBlocos::getPonteiroBloco(size_t id_bloco) {
 
 }
 
-void GerenciadorDeBlocos::sincronizarBloco(size_t id_bloco) {
+void GerenciadorArquivoDados::sincronizarBloco(size_t id_bloco) {
+    
+    size_t offset = id_bloco * tamanho_bloco;
 
-    void* endereco_bloco = getPonteiroBloco(id_bloco);
-
-    if (msync(endereco_bloco, tamanho_bloco, MS_SYNC) == -1) {
+    if (offset >= tamanho_total_arquivo || mapa_memoria == nullptr) {
+    
+        std::cerr << "[Gerenciador] Tentativa de Sincronizar bloco inválido: " << id_bloco << std::endl;
         
-        std::cerr << "[Gerenciador de Blocos] msync falhou para o bloco " << id_bloco << ": " << std::string(std::strerror(errno)) << std::endl;
+        return;
     
     }
+    
+    void* endereco_bloco = (void*)(static_cast<char*>(mapa_memoria) + offset);
 
+    
+    if (msync(endereco_bloco, tamanho_bloco, MS_SYNC) == -1) {
+    
+        std::cerr << "[Gerenciador] msync falhou para o bloco " << id_bloco << ": " << std::string(std::strerror(errno)) << std::endl;
+    
+    }
+    
+    
     blocos_escritos++;
 
 }
 
-size_t GerenciadorDeBlocos::alocarNovoBloco() {
+size_t GerenciadorArquivoDados::alocarNovoBloco() {
     
     size_t novo_id = (tamanho_total_arquivo == 0) ? 0 : (tamanho_total_arquivo / tamanho_bloco);
-    
     size_t novo_tamanho_total = (novo_id + 1) * tamanho_bloco;
 
     if (ftruncate(arquivo_fd, novo_tamanho_total) == -1) {
-        
-        throw std::runtime_error("[Gerenciador de Blocos] Erro ao estender arquivo (ftruncate): " + std::string(std::strerror(errno)));
-    
+        throw std::runtime_error("[Gerenciador] Erro ao estender arquivo (ftruncate): " + std::string(std::strerror(errno)));
     }
 
     if (mapa_memoria == nullptr) {
-        
         mapa_memoria = mmap(nullptr, novo_tamanho_total, PROT_READ | PROT_WRITE, MAP_SHARED, arquivo_fd, 0);
-        
         if (mapa_memoria == MAP_FAILED) {
-            
-            throw std::runtime_error("[Gerenciador de Blocos] Erro no mmap inicial ao alocar: " + std::string(std::strerror(errno)));
-        
+            throw std::runtime_error("[Gerenciador] Erro no mmap inicial ao alocar: " + std::string(std::strerror(errno)));
         }
-    
-    }
-    
-    else {
-        
+    } else {
         void* novo_mapa = mremap(mapa_memoria, tamanho_total_arquivo, novo_tamanho_total, MREMAP_MAYMOVE);
-        
         if (novo_mapa == MAP_FAILED) {
-            
             throw std::runtime_error("Erro ao remapear arquivo (mremap): " + std::string(std::strerror(errno)));
-        
         }
-        
         mapa_memoria = novo_mapa;
-    
     }
 
     tamanho_total_arquivo = novo_tamanho_total;
 
-    void* ponteiro_novo_bloco = getPonteiroBloco(novo_id);
+    size_t offset_novo_bloco = novo_id * tamanho_bloco;
+    void* ponteiro_novo_bloco = (void*)(static_cast<char*>(mapa_memoria) + offset_novo_bloco);
     
     std::memset(ponteiro_novo_bloco, 0, tamanho_bloco);
-    
-    sincronizarBloco(novo_id);
 
     return novo_id;
+
+}
+
+void GerenciadorArquivoDados::alocarBlocosEmMassa(size_t num_blocos) {
+    
+    if (tamanho_total_arquivo != 0) {
+
+        throw std::runtime_error("[Gerenciador de Blocos] Alocação em massa só pode ser feita em um arquivo vazio.");
+
+    }
+
+    if (num_blocos == 0) {
+
+        return;
+
+    }
+
+    size_t novo_tamanho_total = num_blocos * tamanho_bloco;
+
+    if (ftruncate(arquivo_fd, novo_tamanho_total) == -1) {
+
+        throw std::runtime_error("[Gerenciador de Blocos] Erro ao estender arquivo (ftruncate) em massa: " + std::string(std::strerror(errno)));
+
+    }
+
+    mapa_memoria = mmap(nullptr, novo_tamanho_total, PROT_READ | PROT_WRITE, MAP_SHARED, arquivo_fd, 0);
+
+    if (mapa_memoria == MAP_FAILED) {
+
+        throw std::runtime_error("[Gerenciador de Blocos] Erro no mmap inicial ao alocar em massa: " + std::string(std::strerror(errno)));
+
+    }
+
+    std::memset(mapa_memoria, 0, novo_tamanho_total);
+
+    tamanho_total_arquivo = novo_tamanho_total;
+
+    std::cout << "[Gerenciador de Blocos] " << num_blocos << " blocos alocados em massa (total: " << tamanho_total_arquivo << " bytes)." << std::endl;
+
+}
+
+void GerenciadorArquivoDados::sincronizarArquivoInteiro() {
+    
+    std::cout << "[Gerenciador de Blocos] Sincronizando arquivo inteiro..." << std::endl;
+
+    if (mapa_memoria != nullptr && tamanho_total_arquivo > 0) {
+
+        if (msync(mapa_memoria, tamanho_total_arquivo, MS_SYNC) == -1) {
+
+            std::cerr << "[Gerenciador de Blocos] ERRO: msync falhou para o arquivo inteiro: " << std::string(std::strerror(errno)) << std::endl;
+        
+        }
+    
+    }
+    
+    std::cout << "[Gerenciador de Blocos] Sincronização concluída." << std::endl;
+    
+    blocos_escritos = 0;
+    blocos_lidos = 0;
 
 }

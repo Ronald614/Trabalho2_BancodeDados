@@ -1,152 +1,183 @@
-// Módulos C++.
+// Módulos C++
 #include <iostream>
 #include <string>
 #include <stdexcept>
 #include <chrono>
-#include <iomanip>
 #include <optional>
+#include <iomanip>
+#include <fstream>
 
-// Módulos feitos.
-#include "OSInfo.hpp"
-#include "bloco_de_dados.hpp"
-#include "gerenciador_de_blocos.hpp"
-#include "Arvorebmais.hpp"
+// Nossos módulos
+#include "Artigo.hpp"
 #include "Parser.hpp"
+#include "OSInfo.hpp"
+#include "BlocoDeDados.hpp"
+#include "config.hpp"
+#include "GerenciadorArquivoDados.hpp"
+#include "ArvoreBMais.hpp"
+
+/**
+ * @brief Programa seek1: Busca um registro pelo ID usando o Índice Primário B+Tree.
+ *
+ * Especificação: "seek1 <ID>: Programa que devolve o registro com ID igual ao
+ * informado, se existir, pesquisando através do arquivo de índice primário,
+ * mostrando todos os campos, a quantidade de blocos lidos para encontrá-lo
+ * no arquivo de índice e a quantidade total de blocos do arquivo de índice primário"
+ */
 
 int main(int argc, char* argv[]) {
 
-    //##################################################################################################################################
-    // 1. Verificação de entrada.
-    //##################################################################################################################################
-    
+    //#################################################################
+    // 1. Verificação de entrada
+    //#################################################################
     if (argc != 2) {
 
         std::cerr << "Erro: Uso incorreto." << std::endl;
         std::cerr << "Uso: " << argv[0] << " <ID>" << std::endl;
-        std::cerr << "Comando esperado: docker compose run --rm seek1 12345" << std::endl;
+        std::cerr << "Exemplo Docker: docker compose run --rm seek1 12345" << std::endl;
         
         return 1;
     
     }
 
-    int id_buscar;
+    int id_busca;
     
     try {
     
-        id_buscar = std::stoi(argv[1]);
+        id_busca = std::stoi(argv[1]);
     
-    } catch (const std::exception& e) {
-    
-        std::cerr << "[seek1] ID inválido. Deve ser um número inteiro." << std::endl;
-    
-        return 1;
-    
-    }
-
-    //##################################################################################################################################
-    // 2. Definição dos caminhos dos arquivos de dados.
-    //##################################################################################################################################
-
-    const std::string dataDir = "/data/db"; 
-    const std::string diretorio_hash = dataDir + "/artigos.dat";
-    const std::string btreeIdPath = dataDir + "/btree_id.idx";
-
-    //##################################################################################################################################
-    // 3. Iniciar medição de tempo e logs.
-    //##################################################################################################################################
-    
-    auto startTime = std::chrono::high_resolution_clock::now();
-    
-    std::cout << "--- Iniciando Busca (seek1) ---" << std::endl;
-    std::cout << "Buscando ID: " << id_buscar << std::endl;
-    std::cout << "Usando Índice Primário (B+Tree): " << btreeIdPath << std::endl;
-    std::cout << "Lendo de Arquivo de Dados (Hash): " << diretorio_hash << std::endl;
-
-    //##################################################################################################################################
-    // 4. Obter informações do sistema e calcular tamanhos de bloco. (Consistente com upload)
-    //##################################################################################################################################
-
-    int tamanho_bloco_os = obter_tamanho_bloco_fs("/data"); 
-    
-    if (tamanho_bloco_os <= 0) { 
-        
-        tamanho_bloco_os = 4096; 
-    
-    }
-    
-    const size_t TAMANHO_BRUTO_BUCKET = sizeof(BlocoDeDados);
-    const size_t TAMANHO_BLOCO_LOGICO_DADOS = calcular_bloco_logico(TAMANHO_BRUTO_BUCKET, tamanho_bloco_os);
-    const size_t TAMANHO_BLOCO_BTREE = 4096;
-    
-    BPlusTreeInt btree_id(btreeIdPath, TAMANHO_BLOCO_BTREE);
-
-    std::cout << "Tamanho Bloco Lógico de Dados (Hash): " << TAMANHO_BLOCO_LOGICO_DADOS << " bytes." << std::endl;
-    std::cout << "Tamanho Bloco B+Tree: " << TAMANHO_BLOCO_BTREE << " bytes." << std::endl;
-
-    //##################################################################################################################################
-    // 5. Inicializar Estruturas e Realizar a Busca.
-    //##################################################################################################################################
-
-    try {
-        
-        BPlusTreeInt btree_id(btreeIdPath, TAMANHO_BLOCO_BTREE);
-
-        GerenciadorDeBlocos gerenciador_dados_hash(diretorio_hash, TAMANHO_BLOCO_LOGICO_DADOS);
-
-        long id_bucket = btree_id.search(id_buscar);
-
-        std::optional<Artigo> artigo_encontrado = std::nullopt;
-
-        if (id_bucket != -1) {
-        
-            BlocoDeDados* bucket = static_cast<BlocoDeDados*>(gerenciador_dados_hash.getPonteiroBloco(id_bucket));
-
-            for (size_t i = 0; i < bucket->contador_registros; ++i) {
-        
-                if (bucket->registros[i].id == id_buscar) {
-        
-                    artigo_encontrado = bucket->registros[i];
-        
-                    break;
-        
-                }
-        
-            }
-            
-        }
-
-        auto endTime = std::chrono::high_resolution_clock::now();
-        long duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
-
-        if (artigo_encontrado) {
-        
-            printArtigo(artigo_encontrado.value());
-        
-        }
-        
-        else {
-
-            std::cout << "\nRegistro com ID " << id_buscar << " não encontrado." << std::endl;
-        
-        }
-
-        //##################################################################################################################################
-        // 6. Imprimir Estatísticas
-        //##################################################################################################################################
-    
-        std::cout << "\n--- Estatísticas (seek1) ---" << std::endl;
-        std::cout << "Tempo total de execução: " << duration_ms << " ms" << std::endl;
-        
-        std::cout << "\nEstatísticas do Arquivo de Índice Primário (" << btreeIdPath << "):" << std::endl << "algum dia vai ter" << std::endl;
     }
     
     catch (const std::exception& e) {
         
-        std::cerr << "[seek1] Erro Fatal durante a busca: " << e.what() << std::endl;
+        std::cerr << "Erro: ID '" << argv[1] << "' inválido. Deve ser um número inteiro." << std::endl;
         
         return 1;
     
     }
 
+    //#################################################################
+    // 2. Definição dos caminhos e início dos logs
+    //#################################################################
+    
+    const std::string dataDir = "/data/db";
+    const std::string diretorio_hash_dados = dataDir + "/artigos.dat";
+    const std::string btreeIdPath = dataDir + "/btree_id.idx";
+
+    std::cout << "--- Iniciando Busca (seek1) ---" << std::endl;
+    std::cout << "Buscando ID: " << id_busca << std::endl;
+    std::cout << "Usando Índice Primário (B+Tree): " << btreeIdPath << std::endl;
+    std::cout << "Lendo de Arquivo de Dados (Hash): " << diretorio_hash_dados << std::endl;
+
+    //#################################################################
+    // 3. Configuração dos Gerenciadores
+    //#################################################################
+
+    int tamanho_bloco_os = obter_tamanho_bloco_fs("/data"); 
+    
+    if (tamanho_bloco_os <= 0) {
+        
+        tamanho_bloco_os = 4096;
+    
+    }
+
+    const size_t TAMANHO_BRUTO_BUCKET = sizeof(BlocoDeDados);
+    const size_t TAMANHO_BLOCO_LOGICO_DADOS = calcular_bloco_logico(TAMANHO_BRUTO_BUCKET, tamanho_bloco_os);
+    
+    size_t TAMANHO_BLOCO_BTREE = 4096;
+    
+    std::cout << "Usando Bloco Lógico de Dados: " << TAMANHO_BLOCO_LOGICO_DADOS << " bytes." << std::endl;
+    std::cout << "Usando Bloco de Índice: " << TAMANHO_BLOCO_BTREE << " bytes." << std::endl;
+
+    std::optional<Artigo> resultado;
+    long blocos_lidos_indice = 0;
+    long total_blocos_indice = 0;
+    long blocos_lidos_dados = 0;
+    long duration_ms = 0;
+
+    //#################################################################
+    // 4. Execução da Busca
+    //#################################################################
+
+    try {
+        
+        BPlusTree<int> btree_id(btreeIdPath, TAMANHO_BLOCO_BTREE);
+
+        GerenciadorArquivoDados gerenciador_dados_hash(diretorio_hash_dados, TAMANHO_BLOCO_LOGICO_DADOS);
+        
+        auto startTime = std::chrono::high_resolution_clock::now();
+
+        std::vector<long> ids_bucket = btree_id.search(id_busca);
+
+        // 2. Se o índice encontrou a localização o bucket ID
+        if (!ids_bucket.empty()) {
+            
+            long id_bucket = ids_bucket[0];
+
+            // 3. Busca o bucket no arquivo de DADOS
+            BlocoDeDados* bucket = static_cast<BlocoDeDados*>(gerenciador_dados_hash.getPonteiroBloco(id_bucket));
+
+            // 4. Procura registro no bucket
+            for (size_t i = 0; i < bucket->contador_registros; ++i) {
+
+                if (bucket->registros[i].id == id_busca) {
+
+                    resultado = bucket->registros[i];
+
+                    break;
+
+                }
+
+            }
+
+        }
+        
+        auto endTime = std::chrono::high_resolution_clock::now();
+        duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+
+        // Coleta as estatísticas
+        
+        blocos_lidos_indice = btree_id.getIndexBlocosLidos();
+        total_blocos_indice = btree_id.getIndexTotalBlocos();
+        blocos_lidos_dados = gerenciador_dados_hash.obterBlocosLidos();
+
+    }
+    
+    catch (const std::exception& e) {
+        
+        std::cerr << "Erro Fatal durante a busca: " << e.what() << std::endl;
+        
+        return 1;
+    
+    }
+
+    //#################################################################
+    // 5. Relatório de Resultados e Estatísticas
+    //#################################################################
+
+    if (resultado) {
+
+        std::cout << "\n--- Registro Encontrado ---" << std::endl;
+        printArtigo(resultado.value());
+
+    }
+    
+    else {
+
+        std::cout << "\n--- Registro com ID " << id_busca << " não encontrado. ---" << std::endl;
+    
+    }
+
+    std::cout << "\n--- Estatísticas da Operação (seek1) ---" << std::endl;
+    std::cout << "Tempo total de execução: " << duration_ms << " ms" << std::endl;
+    std::cout << "------------------------------------" << std::endl;
+    std::cout << "Arquivo de Índice Primário (" << btreeIdPath << "):" << std::endl;
+    std::cout << "  - Blocos lidos: " << blocos_lidos_indice << std::endl;
+    std::cout << "  - Total de blocos: " << total_blocos_indice << std::endl;
+    std::cout << "------------------------------------" << std::endl;
+    std::cout << "Arquivo de Dados (" << diretorio_hash_dados << "):" << std::endl;
+    std::cout << "  - Blocos lidos: " << blocos_lidos_dados << std::endl;
+
     return 0;
+
 }

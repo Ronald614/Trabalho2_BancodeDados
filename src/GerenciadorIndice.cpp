@@ -1,10 +1,10 @@
-#include "GerenciaBlocos.hpp"
+#include "GerenciadorIndice.hpp"
 #include <stdexcept>
 #include <fstream>
 #include <string>
 
 //construtor
-GerenciaBlocos::GerenciaBlocos(const std::string& nomeArquivo, size_t tamanhoBloco)
+GerenciadorIndice::GerenciadorIndice(const std::string& nomeArquivo, size_t tamanhoBloco)
     : nomeArquivo(nomeArquivo), tamanhoBloco(tamanhoBloco), blocos_lidos(0), blocos_escritos(0) {
     
     this->fileStream.open(this->nomeArquivo, std::ios::in | std::ios::out | std::ios::binary);  //tenta abrir para leitura e escrita
@@ -39,7 +39,7 @@ GerenciaBlocos::GerenciaBlocos(const std::string& nomeArquivo, size_t tamanhoBlo
 }
 
 //destrutor
-GerenciaBlocos::~GerenciaBlocos() {
+GerenciadorIndice::~GerenciadorIndice() {
     if (fileStream.is_open()) {//se esta aberto fecha o arquivo
         fileStream.close();
     }
@@ -48,7 +48,7 @@ GerenciaBlocos::~GerenciaBlocos() {
 // métodos para modificar e ler o arquivo
     
 // Lê o conteúdo de um bloco específico do disco para um buffer.
-void GerenciaBlocos::lerBloco(long idBloco, char* buffer) {
+void GerenciadorIndice::lerBloco(long idBloco, char* buffer) {
     // Calcula a posição exata do bloco no arquivo em bytes.
     long posicao = idBloco * this->tamanhoBloco; //achar a posicao e achar a posicao do bloco
 
@@ -65,7 +65,7 @@ void GerenciaBlocos::lerBloco(long idBloco, char* buffer) {
 }
 
 // Escreve o conteúdo de um buffer em um bloco específico no disco.
-void GerenciaBlocos::escreveBloco(long idBloco, const char* buffer) {
+void GerenciadorIndice::escreveBloco(long idBloco, const char* buffer) {
     // Calcula a posição exata para a escrita.
     long position = idBloco * this->tamanhoBloco;
 
@@ -84,7 +84,7 @@ void GerenciaBlocos::escreveBloco(long idBloco, const char* buffer) {
 }
 
 
-long GerenciaBlocos::getTamanhoArquivo() {
+long GerenciadorIndice::getTamanhoArquivo() {
     //stream temporario para checar o tamanho do arquivo
     std::ifstream file(this->nomeArquivo, std::ios::binary | std::ios::ate);
 
@@ -98,10 +98,10 @@ long GerenciaBlocos::getTamanhoArquivo() {
     return size;
 }
 
-long GerenciaBlocos::getBlocosLidos() const {
+long GerenciadorIndice::getBlocosLidos() const {
     return blocos_lidos;
 }
 
-long GerenciaBlocos::getBlocosEscritos() const {
+long GerenciadorIndice::getBlocosEscritos() const {
     return blocos_escritos;
 }
