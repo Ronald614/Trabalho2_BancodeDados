@@ -253,7 +253,7 @@ void GerenciadorArquivoDados::sincronizarArquivoInteiro() {
 }
 
 void GerenciadorArquivoDados::flushCheckpoint() {
-    
+
     log_info("Sincronizando checkpoint..."); 
     
     if (mapa_memoria != nullptr && tamanho_total_arquivo > 0) {
@@ -265,5 +265,21 @@ void GerenciadorArquivoDados::flushCheckpoint() {
         }
 
     }
+
+}
+
+void GerenciadorArquivoDados::notificarEscrita(size_t id_bloco) {
+    
+    size_t offset = id_bloco * tamanho_bloco;
+    
+    if (offset >= tamanho_total_arquivo || mapa_memoria == nullptr) {
+    
+        log_warn("Tentativa de Notificar escrita em bloco inválido: " + std::to_string(id_bloco));
+    
+        return;
+    
+    }
+
+    blocos_escritos++;
 
 }

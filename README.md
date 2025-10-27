@@ -1,6 +1,8 @@
 # Trabalho Prático 2 - Banco de Dados I
 
-Trabalho para implementar um sistema de armazenamento e consulta de dados em memória secundária, usando Hashing Estático e ÁrvoreB+.
+Trabalho para implementar um sistema de armazenamento e consulta de dados em memória secundária, usando **hashing estático** e **árvore B+**.
+
+-----
 
 ## Compilação
 
@@ -22,9 +24,13 @@ Para construir a imagem Docker:
 make docker-build
 ```
 
+-----
+
 ## Execução
 
 O `docker-compose.yml` está configurado para montar o diretório local `./data` no diretório `/data` dentro do contêiner.
+
+Conforme a especificação, o diretório ``./data`` está vazio no repositório. Antes de executar o upload, é necessário copiar o arquivo CSV de entrada para dentro da pasta ``./data``.
 
 ### 1\. `upload`
 

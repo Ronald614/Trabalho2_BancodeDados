@@ -46,10 +46,10 @@ SEEK2_SRCS = \
 	$(SRCDIR)/Log.cpp
 
 # --- Regras de Build Automáticas ---
-UPLOAD_OBJS = $(UPLOAD_SRCS:.cpp=.o)
-FINDREC_OBJS = $(FINDREC_SRCS:.cpp=.o)
-SEEK1_OBJS = $(SEEK1_SRCS:.cpp=.o)
-SEEK2_OBJS = $(SEEK2_SRCS:.cpp=.o)
+UPLOAD_OBJS = $(patsubst $(SRCDIR)/%.cpp,$(BINDIR)/%.o,$(UPLOAD_SRCS))
+FINDREC_OBJS = $(patsubst $(SRCDIR)/%.cpp,$(BINDIR)/%.o,$(FINDREC_SRCS))
+SEEK1_OBJS = $(patsubst $(SRCDIR)/%.cpp,$(BINDIR)/%.o,$(SEEK1_SRCS))
+SEEK2_OBJS = $(patsubst $(SRCDIR)/%.cpp,$(BINDIR)/%.o,$(SEEK2_SRCS))
 TARGETS = $(patsubst %,$(BINDIR)/%,$(PROGRAMS))
 
 # Regra principal: 'make' ou 'make build'
@@ -72,7 +72,7 @@ $(BINDIR)/seek2: $(SEEK2_OBJS) | $(BINDIR)
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
 # Regra de "compilação": Como transformar qualquer arquivo .cpp em .o
-$(SRCDIR)/%.o: $(SRCDIR)/%.cpp
+$(BINDIR)/%.o: $(SRCDIR)/%.cpp | $(BINDIR)
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 # --- Outras Regras ---
@@ -83,7 +83,7 @@ $(BINDIR):
 
 .PHONY: clean
 clean:
-	rm -rf $(SRCDIR)/*.o $(BINDIR)/*
+	rm -rf $(BINDIR)
 
 # Nome da imagem Docker
 IMAGE_NAME = tp2

@@ -83,6 +83,13 @@ public:
      */
     void flushCheckpoint();
 
+    /**
+     * @brief Notifica o gerenciador que um bloco foi modificado na memória.
+     * Incrementa o contador de blocos escritos para registrar estatísticas.
+     * @param id_bloco O ID (índice) do bloco que foi modificado.
+     */
+    void notificarEscrita(size_t id_bloco);
+
     // Métodos de Informação
 
     /**

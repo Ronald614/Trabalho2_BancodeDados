@@ -85,6 +85,8 @@ size_t ArquivoHashEstatico::inserir(const Artigo& a) {
             
             bucket->registros[bucket->contador_registros] = a;
             bucket->contador_registros++;
+
+            gerenciador_dados.notificarEscrita(id_bucket_atual);
             
             return id_bucket_atual; 
 
@@ -98,13 +100,17 @@ size_t ArquivoHashEstatico::inserir(const Artigo& a) {
 
             BlocoDeDados* bucket_atualizado = static_cast<BlocoDeDados*>(gerenciador_dados.getPonteiroBloco(id_bucket_atual));
             
-            bucket_atualizado->proximo_bloco_overflow = novo_id_overflow; 
+            bucket_atualizado->proximo_bloco_overflow = novo_id_overflow;
+
+            gerenciador_dados.notificarEscrita(id_bucket_atual);
             
             BlocoDeDados* bucket_overflow = static_cast<BlocoDeDados*>(gerenciador_dados.getPonteiroBloco(novo_id_overflow));
             
             bucket_overflow->registros[bucket_overflow->contador_registros] = a;
             bucket_overflow->contador_registros++;
             
+            gerenciador_dados.notificarEscrita(id_bucket_atual);
+
             return novo_id_overflow;
 
         }

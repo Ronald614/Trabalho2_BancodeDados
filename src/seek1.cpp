@@ -59,6 +59,14 @@ int main(int argc, char* argv[]) {
     
     }
 
+    if (id_busca <= 0) {
+        
+        log_error("ID '" + std::string(argv[1]) + "' inválido. O ID deve ser um número positivo maior que zero.");
+        
+        return 1;
+    
+    }
+
     //#################################################################
     // 2. Definição dos caminhos e início dos logs
     //#################################################################
